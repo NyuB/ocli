@@ -1,0 +1,3 @@
+(tests
+ (names tty_test)
+ (libraries alcotest tty))

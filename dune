@@ -1,0 +1,19 @@
+(rule
+ (target dune-project.formatted)
+ (action
+  (run %{dep:fmt/sexpfmt.exe} %{dep:dune-project} .)))
+
+(rule
+ (alias fmt)
+ (action
+  (diff dune-project dune-project.formatted)))
+
+(rule
+ (target .gitignore.formatted)
+ (action
+  (run %{dep:fmt/gitignorefmt.exe} %{dep:.gitignore} .)))
+
+(rule
+ (alias fmt)
+ (action
+  (diff .gitignore .gitignore.formatted)))

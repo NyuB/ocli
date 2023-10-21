@@ -1,0 +1,3 @@
+(library
+ (name tty)
+ (libraries qol unix))

@@ -1,0 +1,8 @@
+(executable
+ (name sexpfmt)
+ (modules sexpfmt)
+ (libraries sexplib))
+
+(executable
+ (name gitignorefmt)
+ (modules gitignorefmt))
