@@ -28,3 +28,4 @@ let ( |?: ) opt lazy_default =
 ;;
 
 let ( |? ) f opt = Option.map opt f
+let ( |?* ) f opt = Option.bind f opt

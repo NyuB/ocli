@@ -1,5 +1,10 @@
 open Qol
 
+type position =
+  { row : int
+  ; col : int
+  }
+
 type command =
   | Up
   | Right
@@ -8,6 +13,7 @@ type command =
   | Del
   | Enter
   | Esc
+  | Size of position
   | Unknown
   | Char of char
 
@@ -19,8 +25,33 @@ let string_of_command = function
   | Del -> "Del"
   | Enter -> "Enter"
   | Esc -> "Esc"
+  | Size { row; col } -> Printf.sprintf "Size %dx%d" row col
   | Unknown -> "Unknown"
   | Char c -> Printf.sprintf "Char %c" c
+;;
+
+let csi_seq = [ '\x1B'; '[' ]
+let csi chars = csi_seq @ chars
+let csi_str s = Printf.sprintf "\x1b[%s" s
+
+let parse_terminated_num terminator char_list =
+  let rec aux acc = function
+    | c :: t when c = terminator -> if acc = "" then None else Some (int_of_string acc, t)
+    | ('0' .. '9' as d) :: t -> aux (acc ^ String.make 1 d) t
+    | _ -> None
+  in
+  aux "" char_list
+;;
+
+(* match the n; part of ESC[n;mR sequence *)
+let parse_resize_row char_list = parse_terminated_num ';' char_list
+
+(* match the mR part of ESC[n;mR sequence *)
+let parse_resize_col char_list = parse_terminated_num 'R' char_list
+
+let parse_resize char_list =
+  parse_resize_row char_list
+  |?* fun (r, t) -> parse_resize_col t |? fun (c, t) -> { row = r; col = c }, t
 ;;
 
 let commands_of_bytes bytes =
@@ -30,7 +61,10 @@ let commands_of_bytes bytes =
     | '\027' :: '\091' :: '\066' :: t -> aux (Down :: acc) t
     | '\027' :: '\091' :: '\067' :: t -> aux (Right :: acc) t
     | '\027' :: '\091' :: '\068' :: t -> aux (Left :: acc) t
-    | '\027' :: '\091' :: _ :: t -> aux (Unknown :: acc) t
+    | '\x1B' :: '[' :: t ->
+      (match parse_resize t with
+       | Some (pos, rest) -> aux (Size pos :: acc) rest
+       | None -> aux (Unknown :: acc) t)
     | '\027' :: t -> aux (Esc :: acc) t
     | '\127' :: t -> aux (Del :: acc) t
     | '\r' :: '\n' :: t | '\n' :: t | '\r' :: t -> aux (Enter :: acc) t
@@ -38,10 +72,6 @@ let commands_of_bytes bytes =
   in
   aux [] bytes
 ;;
-
-let csi_seq = [ '\x1B'; '[' ]
-let csi chars = csi_seq @ chars
-let csi_str s = Printf.sprintf "\x1b[%s" s
 
 let csis count cmd_char =
   let rec aux acc n =
@@ -61,13 +91,18 @@ let csis count cmd_char =
   aux [] count
 ;;
 
-type position =
-  { row : int
-  ; col : int
-  }
-
 let move { row; col } = csi_str @@ Printf.sprintf "%d;%dH" row col
-let clear_screen = csi [ '1'; ';'; '1'; 'H' ] @ csi [ '0'; 'J' ]
+let csi_comma = ';'
+
+(* Move cursor to the top left then clear screen after the cursor *)
+let clear_screen = csi [ '1'; csi_comma; '1'; 'H' ] @ csi [ '0'; 'J' ]
+
+(* Try to move cursor to the bottom-rightest possible then query the actual cursor position *)
+let ask_dimensions =
+  csi [ '9'; '9'; '9'; csi_comma; '9'; '9'; '9'; 'H' ] @ csi [ '6'; 'n' ]
+;;
+
+let hide_cursor = csi [ '?'; '2'; '5'; 'l' ]
 
 type color =
   | Black
@@ -173,10 +208,21 @@ let read_terminal_input terminal_fd =
   | false -> []
 ;;
 
-let rec read_terminal_input_loop terminal =
-  match read_terminal_input terminal with
-  | [] -> read_terminal_input_loop terminal
-  | cmds -> cmds
+let read_terminal_input_loop terminal out =
+  let tty_out_chars = send_chars out in
+  let ask_resize_freq = 50 in
+  let rec aux counter =
+    match read_terminal_input terminal with
+    | [] ->
+      if counter = 0
+      then (
+        tty_out_chars ask_dimensions;
+        Out_channel.flush out;
+        aux ask_resize_freq)
+      else aux (counter - 1)
+    | cmds -> cmds
+  in
+  aux ask_resize_freq
 ;;
 
 type view_item = position * style * string
@@ -192,6 +238,8 @@ end
 let loop_app (module A : App) (module S : Styling) terminal out =
   let tty_out_chars = send_chars out
   and tty_out_line s = send_string out s in
+  tty_out_chars hide_cursor;
+  Out_channel.flush out;
   let rec loop model =
     tty_out_chars clear_screen;
     List.iter
@@ -200,7 +248,7 @@ let loop_app (module A : App) (module S : Styling) terminal out =
         tty_out_line (S.styled s str))
       (A.view model);
     Out_channel.flush out;
-    let cmds = read_terminal_input_loop terminal in
+    let cmds = read_terminal_input_loop terminal out in
     let updated = List.fold_left A.update model cmds in
     loop updated
   in
