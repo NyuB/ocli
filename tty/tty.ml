@@ -74,29 +74,22 @@ type color =
   | Cyan
   | Default
 
+type style =
+  { fg_color : color option
+  ; bg_color : color option
+  ; underlined : bool
+  ; bold : bool
+  }
+
 module type Style_Default = sig
   val default_foreground_color : color
   val default_background_color : color
 end
 
 module Style (D : Style_Default) : sig
-  type style =
-    { fg_color : color option
-    ; bg_color : color option
-    ; underlined : bool
-    ; bold : bool
-    }
-
   val default_style : style
   val styled : style -> string -> string
 end = struct
-  type style =
-    { fg_color : color option
-    ; bg_color : color option
-    ; underlined : bool
-    ; bold : bool
-    }
-
   let default_style =
     { fg_color = None; bg_color = None; underlined = false; bold = false }
   ;;
