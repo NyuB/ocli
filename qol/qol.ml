@@ -30,7 +30,7 @@ end = struct
   ;;
 end
 
-let ( |?: ) lazy_default opt =
+let ( |?: ) opt lazy_default =
   match opt with
   | None -> Lazy.force lazy_default
   | Some v -> v
