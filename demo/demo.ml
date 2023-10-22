@@ -1,5 +1,3 @@
-open Qol
-
 module Term_colors = struct
   let default_background_color = Tty.Default
   let default_foreground_color = Tty.Default
@@ -39,9 +37,45 @@ end = struct
     in
     next_i, c
   ;;
+
+  module Tests = struct
+    let progress_after t events =
+      List.fold_left (fun acc i -> handle_command i acc) t events
+    ;;
+
+    let print_t t = print_endline (to_string t)
+    let empty = init '@'
+    let repeat n (event : Tty.command) = List.init n (fun _ -> event)
+
+    let%expect_test "Empty" =
+      print_t (progress_after empty []);
+      [%expect {| [__________] |}]
+    ;;
+
+    let%expect_test "Right increment the bar" =
+      let one_right = progress_after empty [ Right ] in
+      print_t one_right;
+      [%expect {| [@_________] |}];
+      let nine_more = progress_after one_right (repeat 9 Right) in
+      print_t nine_more;
+      [%expect {| [@@@@@@@@@@] |}]
+    ;;
+
+    let%expect_test "Left decrement the bar, del empty the bar" =
+      let mid_fill = progress_after empty (repeat 5 Right) in
+      print_t mid_fill;
+      [%expect {| [@@@@@_____] |}];
+      let minus_one = progress_after mid_fill [ Left ] in
+      print_t minus_one;
+      [%expect {| [@@@@______] |}];
+      let deleted = progress_after minus_one [ Del ] in
+      print_t deleted;
+      [%expect {| [__________] |}]
+    ;;
+  end
 end
 
-module Demo : Tty.App = struct
+module App : Tty.App = struct
   type phase =
     | Hello
     | Display_check
@@ -160,12 +194,58 @@ module Demo : Tty.App = struct
     | Progress_bar b, msg -> pos, Progress_bar (Progress.handle_command msg b)
     | m, _ -> pos, m
   ;;
-end
 
-let () =
-  let term = Unix.stdin in
-  let info = Unix.tcgetattr term in
-  Unix.tcsetattr term Unix.TCSANOW (Tty.disable_default_terminal_behavior info);
-  let out = Out_channel.stdout in
-  Tty.loop_app (module Demo) (module Term_style) term out
-;;
+  module Tests = struct
+    let repr_state = function
+      | Hello -> "Hello"
+      | Display_check -> "Display Check"
+      | Progress_bar b -> Printf.sprintf "Progress Bar %s" (Progress.to_string b)
+      | End -> "End"
+    ;;
+
+    let repr_model ({ row; col } : Tty.position) m =
+      Printf.sprintf "(%dx%d) %s" row col (repr_state m)
+    ;;
+
+    let print_t (pos, m) = print_endline (repr_model pos m)
+    let play_events model events = List.fold_left update model events
+
+    let%expect_test "Hello then Display check then Progress bar then End" =
+      let enter m = play_events m [ Enter ] in
+      let m = init in
+      print_t m;
+      [%expect {| (1x1) Hello |}];
+      let m = enter m in
+      print_t m;
+      [%expect {| (1x1) Display Check |}];
+      let m = enter m in
+      print_t m;
+      [%expect {| (1x1) Progress Bar [__________] |}];
+      let m = enter m in
+      print_t m;
+      [%expect {| (1x1) End |}]
+    ;;
+
+    let%expect_test "Update size" =
+      let resized = play_events init [ Size { row = 50; col = 80 } ] in
+      print_t resized;
+      [%expect {| (50x80) Hello |}]
+    ;;
+
+    let%expect_test "Update progress bar" =
+      let progress =
+        play_events
+          init
+          [ Size { row = 50; col = 80 }; Enter; Enter; Right; Right; Right ]
+      in
+      print_t progress;
+      [%expect {| (50x80) Progress Bar [@@@_______] |}];
+      let progress = play_events progress [ Left ] in
+      print_t progress;
+      [%expect {| (50x80) Progress Bar [@@________] |}];
+      let progress = play_events progress [ Del ] in
+      print_t progress;
+      [%expect {| (50x80) Progress Bar [__________] |}]
+    ;;
+  end
+end
