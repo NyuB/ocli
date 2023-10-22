@@ -11,12 +11,16 @@ module Progress : sig
   type t
 
   val init : char -> t
+  val is_full : t -> bool
+  val is_empty : t -> bool
   val to_string : t -> string
   val handle_command : Tty.command -> t -> t
 end = struct
   type t = int * char
 
   let init c = 0, c
+  let is_full (i, _) = i = 10
+  let is_empty (i, _) = i = 0
 
   let to_string (i, c) =
     let left = String.make i c
@@ -85,21 +89,44 @@ module Demo : Tty.App = struct
     List.mapi (fun i l -> Tty.{ row = i + 1; col = 1 }, Term_style.default_style, l) lines
   ;;
 
+  let hello =
+    [ "            #####      ####"
+    ; "          ########    ######        #####"
+    ; "         #########    #######      #      #"
+    ; "         #       #   #       #    #    o   ##"
+    ; "        #  Hell'O # #  Caml  #   #        ###"
+    ; "       ##          #         #####     #####"
+    ; "      #  This is a demo/test program  #"
+    ; "     ##                              ##"
+    ; "     #   Press Enter to proceed     ##"
+    ; "     #                          ####"
+    ; "    /###########################"
+    ; "   /     ####             #  ##"
+    ; "  |      ##  #            #    #"
+    ; " /      ##   #            #     #"
+    ; "*      ##    ##           #     ##"
+    ; "      ##      #          ##      ##"
+    ; "    ##        #          #        #"
+    ; "    #         ##        ##        ##"
+    ]
+  ;;
+
   let view : model -> Tty.view_item list = function
-    | Hello ->
-      simply_lines
-        [ "Hell'OCaml"
-        ; "This is a demo/test program"
-        ; "Press Enter to proceed to the next phase of the demo"
-        ]
+    | Hello -> simply_lines hello
     | Display_check -> display_check_lines
     | Progress_bar b ->
       simply_lines
         [ "Now testing the terminal I/O interactivity behavior"
         ; "A progress bar will appear. You can:"
-        ; "\tincrease it by pressing the right arrow key,"
-        ; "\tdecrease it by pressing the left arrow key,"
-        ; "\tclear it by pressing the delete key,"
+        ; (if not @@ Progress.is_full b
+           then "\t\xE2\x87\x92   increase it by pressing the right  arrow key,"
+           else "")
+        ; (if not @@ Progress.is_empty b
+           then "\t\xE2\x87\x90   decrease it by pressing the left arrow key,"
+           else "")
+        ; (if not @@ Progress.is_empty b
+           then "\tDEL clear it by pressing the delete key,"
+           else "")
         ; "Press Enter to proceed to the next phase of the demo"
         ; Progress.to_string b
         ]
