@@ -61,7 +61,6 @@ let csis count cmd_char =
   aux [] count
 ;;
 
-let previous_line = csi [ '\001'; 'F' ]
 let clear_screen = csi [ '1'; ';'; '1'; 'H' ] @ csi [ '0'; 'J' ]
 
 type color =
