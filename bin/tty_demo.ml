@@ -1,5 +1,12 @@
 open Qol
 
+module Term_colors = struct
+  let default_background_color = Tty.Default
+  let default_foreground_color = Tty.Default
+end
+
+module Term_style = Tty.Style (Term_colors)
+
 module Progress : sig
   type t
 
@@ -41,86 +48,62 @@ module Demo : Tty.App = struct
 
   let init = Hello
 
-  module Term_color = Tty.Style (struct
-      let default_foreground_color = Tty.Default
-      let default_background_color = Tty.Default
-    end)
-
   let display_check_lines =
-    [ "The following lines surrounded by vvv and ^^^ are here to verify the terminal \
-       display has the expected behavior"
-    ; String.make 80 'v'
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Red }
-        "This should appear Red"
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Green }
-        "This should appear Green"
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Blue }
-        "This should appear Blue"
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Yellow }
-        "This should appear Yellow"
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Magenta }
-        "This should appear Magenta"
-    ; Term_color.styled
-        { Term_color.default_style with fg_color = Some Cyan }
-        "This should appear Cyan"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Red }
-        "This should appear Red"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Green }
-        "This should appear Green"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Blue }
-        "This should appear Blue"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Yellow }
-        "This should appear Yellow"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Magenta }
-        "This should appear Magenta"
-    ; Term_color.styled
-        { Term_color.default_style with bg_color = Some Cyan }
-        "This should appear Cyan"
-    ; Term_color.styled
-        { Term_color.default_style with underlined = true }
-        "This should be underlined"
-    ; Term_color.styled
-        { Term_color.default_style with bold = true }
-        "This should be bold"
-    ; Term_color.styled
-        { Term_color.default_style with underlined = true; bold = true }
-        "This should be bold and underlined"
-    ; Term_color.styled
-        { bg_color = Some Yellow; fg_color = None; underlined = true; bold = false }
-        "This should be yellow and underlined"
-    ; String.make 80 '^'
-    ; "Press Enter to proceed to the next phase of the demo"
+    [ ( Term_style.default_style
+      , "The following lines surrounded by vvv and ^^^ are here to verify the terminal \
+         display has the expected behavior" )
+    ; Term_style.default_style, String.make 80 'v'
+    ; { Term_style.default_style with fg_color = Some Red }, "This should appear Red"
+    ; { Term_style.default_style with fg_color = Some Green }, "This should appear Green"
+    ; { Term_style.default_style with fg_color = Some Blue }, "This should appear Blue"
+    ; ( { Term_style.default_style with fg_color = Some Yellow }
+      , "This should appear Yellow" )
+    ; ( { Term_style.default_style with fg_color = Some Magenta }
+      , "This should appear Magenta" )
+    ; { Term_style.default_style with fg_color = Some Cyan }, "This should appear Cyan"
+    ; { Term_style.default_style with bg_color = Some Red }, "This should appear Red"
+    ; { Term_style.default_style with bg_color = Some Green }, "This should appear Green"
+    ; { Term_style.default_style with bg_color = Some Blue }, "This should appear Blue"
+    ; ( { Term_style.default_style with bg_color = Some Yellow }
+      , "This should appear Yellow" )
+    ; ( { Term_style.default_style with bg_color = Some Magenta }
+      , "This should appear Magenta" )
+    ; { Term_style.default_style with bg_color = Some Cyan }, "This should appear Cyan"
+    ; { Term_style.default_style with underlined = true }, "This should be underlined"
+    ; { Term_style.default_style with bold = true }, "This should be bold"
+    ; ( { Term_style.default_style with underlined = true; bold = true }
+      , "This should be bold and underlined" )
+    ; ( { bg_color = Some Yellow; fg_color = None; underlined = true; bold = false }
+      , "This should be yellow and underlined" )
+    ; Term_style.default_style, String.make 80 '^'
+    ; Term_style.default_style, "Press Enter to proceed to the next phase of the demo"
     ]
+    |> List.mapi (fun i (s, str) -> Tty.{ row = i + 1; col = 1 }, s, str)
   ;;
 
-  let view = function
+  let simply_lines lines =
+    List.mapi (fun i l -> Tty.{ row = i + 1; col = 1 }, Term_style.default_style, l) lines
+  ;;
+
+  let view : model -> Tty.view_item list = function
     | Hello ->
-      [ "Hell'OCaml"
-      ; "This is a demo/test program"
-      ; "This is a demo/test program"
-      ; "Press Enter to proceed to the next phase of the demo"
-      ]
+      simply_lines
+        [ "Hell'OCaml"
+        ; "This is a demo/test program"
+        ; "Press Enter to proceed to the next phase of the demo"
+        ]
     | Display_check -> display_check_lines
     | Progress_bar b ->
-      [ "Now testing the terminal I/O interactivity behavior"
-      ; "A progress bar will appear. You can:"
-      ; "\tincrease it by pressing the right arrow key,"
-      ; "\tdecrease it by pressing the left arrow key,"
-      ; "\tclear it by pressing the delete key,"
-      ; "Press Enter to proceed to the next phase of the demo"
-      ; Progress.to_string b
-      ]
-    | End -> [ "End of Demo, hit Ctrl+C to exit he program" ]
+      simply_lines
+        [ "Now testing the terminal I/O interactivity behavior"
+        ; "A progress bar will appear. You can:"
+        ; "\tincrease it by pressing the right arrow key,"
+        ; "\tdecrease it by pressing the left arrow key,"
+        ; "\tclear it by pressing the delete key,"
+        ; "Press Enter to proceed to the next phase of the demo"
+        ; Progress.to_string b
+        ]
+    | End -> simply_lines [ "End of Demo, hit Ctrl+C to exit he program" ]
   ;;
 
   let update model message =
@@ -138,5 +121,5 @@ let () =
   let info = Unix.tcgetattr term in
   Unix.tcsetattr term Unix.TCSANOW (Tty.disable_default_terminal_behavior info);
   let out = Out_channel.stdout in
-  Tty.loop_app (module Demo) term out
+  Tty.loop_app (module Demo) (module Term_style) term out
 ;;

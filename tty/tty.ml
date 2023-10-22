@@ -61,6 +61,12 @@ let csis count cmd_char =
   aux [] count
 ;;
 
+type position =
+  { row : int
+  ; col : int
+  }
+
+let move { row; col } = csi_str @@ Printf.sprintf "%d;%dH" row col
 let clear_screen = csi [ '1'; ';'; '1'; 'H' ] @ csi [ '0'; 'J' ]
 
 type color =
@@ -86,10 +92,12 @@ module type Style_Default = sig
   val default_background_color : color
 end
 
-module Style (D : Style_Default) : sig
+module type Styling = sig
   val default_style : style
   val styled : style -> string -> string
-end = struct
+end
+
+module Style (D : Style_Default) : Styling = struct
   let default_style =
     { fg_color = None; bg_color = None; underlined = false; bold = false }
   ;;
@@ -171,23 +179,26 @@ let rec read_terminal_input_loop terminal =
   | cmds -> cmds
 ;;
 
+type view_item = position * style * string
+
 module type App = sig
   type model
 
   val init : model
-  val view : model -> string list
+  val view : model -> view_item list
   val update : model -> command -> model
 end
 
-let loop_app (module A : App) terminal out =
+let loop_app (module A : App) (module S : Styling) terminal out =
   let tty_out_chars = send_chars out
-  and tty_out_line s =
-    send_string out s;
-    send_chars out [ '\n' ]
-  in
+  and tty_out_line s = send_string out s in
   let rec loop model =
     tty_out_chars clear_screen;
-    List.iter tty_out_line (A.view model);
+    List.iter
+      (fun (p, s, str) ->
+        tty_out_line (move p);
+        tty_out_line (S.styled s str))
+      (A.view model);
     Out_channel.flush out;
     let cmds = read_terminal_input_loop terminal in
     let updated = List.fold_left A.update model cmds in
