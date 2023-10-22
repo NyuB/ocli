@@ -5,16 +5,7 @@ module List : sig
 end = struct
   include List
 
-  let not_none l =
-    fold_left
-      (fun acc item ->
-        match item with
-        | None -> acc
-        | Some v -> v :: acc)
-      []
-      l
-    |> rev
-  ;;
+  let not_none l = List.filter_map Fun.id l
 end
 
 module Out_channel : sig
