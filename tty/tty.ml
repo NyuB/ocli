@@ -80,11 +80,7 @@ let csis count cmd_char =
 ;;
 
 let previous_line = csi [ '\001'; 'F' ]
-
-let clear_screen =
-  (String.make 50 '\n' |> String.to_seq |> List.of_seq)
-  @ csi [ '\038'; ';'; '2'; ';'; '\250'; ';'; '\000'; ';'; '\100' ]
-;;
+let clear_screen = csi [ '1'; ';'; '1'; 'H' ] @ csi [ '0'; 'J' ]
 
 type color =
   | Black
