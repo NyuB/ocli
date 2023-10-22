@@ -1,18 +1,5 @@
 open Qol
 
-module Term_color = Tty.Style (struct
-    let default_foreground_color = Tty.Default
-    let default_background_color = Tty.Default
-  end)
-
-module type App = sig
-  type model
-
-  val init : model
-  val view : model -> string list
-  val update : model -> Tty.command -> model
-end
-
 module Progress : sig
   type t
 
@@ -43,38 +30,7 @@ end = struct
   ;;
 end
 
-let disable_default_terminal_behavior term_info =
-  (* Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
-     and input echo (printing of user input on the terminal output) *)
-  Unix.{ term_info with c_icanon = false; c_echo = false }
-;;
-
-let ( ~! ) out = Out_channel.flush out
-
-let rec read_terminal_input_loop terminal =
-  match Tty.read_terminal_input terminal with
-  | [] -> read_terminal_input_loop terminal
-  | cmds -> cmds
-;;
-
-let loop_app (module A : App) terminal out =
-  let tty_out_chars = Tty.send_chars out
-  and tty_out_line s =
-    Tty.send_string out s;
-    Tty.send_chars out [ '\n' ]
-  in
-  let rec loop model =
-    tty_out_chars Tty.clear_screen;
-    List.iter tty_out_line (A.view model);
-    ~!out;
-    let cmds = read_terminal_input_loop terminal in
-    let updated = List.fold_left A.update model cmds in
-    loop updated
-  in
-  loop A.init
-;;
-
-module Demo : App = struct
+module Demo : Tty.App = struct
   type phase =
     | Hello
     | Display_check
@@ -84,6 +40,11 @@ module Demo : App = struct
   type model = phase
 
   let init = Hello
+
+  module Term_color = Tty.Style (struct
+      let default_foreground_color = Tty.Default
+      let default_background_color = Tty.Default
+    end)
 
   let display_check_lines =
     [ "The following lines surrounded by vvv and ^^^ are here to verify the terminal \
@@ -175,7 +136,7 @@ end
 let () =
   let term = Unix.stdin in
   let info = Unix.tcgetattr term in
-  Unix.tcsetattr term Unix.TCSANOW (disable_default_terminal_behavior info);
+  Unix.tcsetattr term Unix.TCSANOW (Tty.disable_default_terminal_behavior info);
   let out = Out_channel.stdout in
-  loop_app (module Demo) term out
+  Tty.loop_app (module Demo) term out
 ;;

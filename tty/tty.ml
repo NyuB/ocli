@@ -39,24 +39,6 @@ let commands_of_bytes bytes =
   aux [] bytes
 ;;
 
-let print_buffer buf n =
-  let s = ref "" in
-  for i = 1 to n do
-    s := !s ^ Printf.sprintf " | %d" (Bytes.get_int8 buf (i - 1))
-  done;
-  print_endline !s
-;;
-
-let read_terminal_input terminal_fd =
-  let ready, _, _ = Unix.select [ terminal_fd ] [] [] 0.01 in
-  let buf = Bytes.create 48 in
-  match List.exists (( = ) terminal_fd) ready with
-  | true ->
-    let read = Unix.read terminal_fd buf 0 48 in
-    Bytes.sub buf 0 read |> Bytes.to_seq |> List.of_seq |> commands_of_bytes
-  | false -> []
-;;
-
 let csi_seq = [ '\x1B'; '[' ]
 let csi chars = csi_seq @ chars
 let csi_str s = Printf.sprintf "\x1b[%s" s
@@ -174,3 +156,50 @@ end
 
 let send_chars out cmds = List.iter (Out_channel.output_char out) cmds
 let send_string out s = Out_channel.output_string out s
+
+let disable_default_terminal_behavior term_info =
+  (* Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
+     and input echo (printing of user input on the terminal output) *)
+  Unix.{ term_info with c_icanon = false; c_echo = false }
+;;
+
+let read_terminal_input terminal_fd =
+  let ready, _, _ = Unix.select [ terminal_fd ] [] [] 0.01 in
+  let buf = Bytes.create 48 in
+  match List.exists (( = ) terminal_fd) ready with
+  | true ->
+    let read = Unix.read terminal_fd buf 0 48 in
+    Bytes.sub buf 0 read |> Bytes.to_seq |> List.of_seq |> commands_of_bytes
+  | false -> []
+;;
+
+let rec read_terminal_input_loop terminal =
+  match read_terminal_input terminal with
+  | [] -> read_terminal_input_loop terminal
+  | cmds -> cmds
+;;
+
+module type App = sig
+  type model
+
+  val init : model
+  val view : model -> string list
+  val update : model -> command -> model
+end
+
+let loop_app (module A : App) terminal out =
+  let tty_out_chars = send_chars out
+  and tty_out_line s =
+    send_string out s;
+    send_chars out [ '\n' ]
+  in
+  let rec loop model =
+    tty_out_chars clear_screen;
+    List.iter tty_out_line (A.view model);
+    Out_channel.flush out;
+    let cmds = read_terminal_input_loop terminal in
+    let updated = List.fold_left A.update model cmds in
+    loop updated
+  in
+  loop A.init
+;;
