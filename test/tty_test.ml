@@ -1,33 +1,6 @@
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 
-let empty_csis =
-  ( "0 repetition of csi"
-  , fun () ->
-      Alcotest.(check (list char))
-        "Expected empty list for 0 repetitions"
-        []
-        (Tty.csis 0 'F') )
-;;
-
-let nine_csis =
-  ( "9 repetitions of csi"
-  , fun () ->
-      Alcotest.(check (list char))
-        "Expected single command for less than 10 repetitions"
-        [ '\027'; '['; '\009'; 'A' ]
-        (Tty.csis 9 'A') )
-;;
-
-let ten_csis =
-  ( "10 repetitions of csi"
-  , fun () ->
-      Alcotest.(check (list char))
-        "Expected two commands for 10 repetitions"
-        [ '\027'; '['; '\009'; 'A'; '\027'; '['; '\001'; 'A' ]
-        (Tty.csis 10 'A') )
-;;
-
 module Test_Style = Tty.Style (struct
     let default_foreground_color = Tty.Black
     let default_background_color = Tty.White
@@ -256,8 +229,7 @@ let no_styling =
 let () =
   Alcotest.run
     "Tty"
-    [ "Repeated commands", quick_tests [ empty_csis; nine_csis; ten_csis ]
-    ; ( "Style foreground"
+    [ ( "Style foreground"
       , quick_tests
           [ fg_red
           ; fg_green

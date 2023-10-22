@@ -73,24 +73,6 @@ let commands_of_bytes bytes =
   aux [] bytes
 ;;
 
-let csis count cmd_char =
-  let rec aux acc n =
-    if n <= 0
-    then List.rev acc
-    else if n < 10
-    then (
-      let with_csi = List.rev_append csi_seq acc in
-      let code = Char.chr n in
-      aux (cmd_char :: code :: with_csi) 0)
-    else (
-      let ni = n - 9 in
-      let with_csi = List.rev_append csi_seq acc in
-      let code = Char.chr 9 in
-      aux (cmd_char :: code :: with_csi) ni)
-  in
-  aux [] count
-;;
-
 let move { row; col } = csi_str @@ Printf.sprintf "%d;%dH" row col
 let csi_comma = ';'
 
