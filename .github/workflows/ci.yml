@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  # Triggers the workflow on push or pull request events
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install opam
+        run: |
+          sudo apt install -y opam
+          opam init -y --shell-setup
+          eval $(opam env)
+          opam switch create -y --with-test .
+          
+      - name: Tests
+        run: |
+          eval $(opam env --set-switch)
+          dune test
+
