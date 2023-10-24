@@ -3,7 +3,7 @@ type position =
   ; col : int
   }
 
-type command =
+type event =
   | Up
   | Right
   | Down
@@ -15,7 +15,7 @@ type command =
   | Unknown
   | Char of char
 
-val string_of_command : command -> string
+val string_of_event : event -> string
 
 type color =
   | Black
@@ -47,11 +47,7 @@ end
 
 module Style : functor (_ : Style_Default) -> Styling
 
-val send_chars : out_channel -> char list -> unit
-val send_string : out_channel -> string -> unit
-val disable_default_terminal_behavior : Unix.terminal_io -> Unix.terminal_io
-val read_terminal_input : Unix.file_descr -> command list
-val read_terminal_input_loop : Unix.file_descr -> out_channel -> command list
+val default_behavior_disabled : Unix.terminal_io -> Unix.terminal_io
 
 type view_item = position * style * string
 
@@ -60,7 +56,7 @@ module type App = sig
 
   val init : model
   val view : model -> view_item list
-  val update : model -> command -> model
+  val update : model -> event -> model
 end
 
 val loop_app : (module App) -> (module Styling) -> Unix.file_descr -> out_channel -> unit

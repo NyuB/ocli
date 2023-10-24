@@ -12,7 +12,7 @@ module Progress : sig
   val is_full : t -> bool
   val is_empty : t -> bool
   val to_string : t -> string
-  val handle_command : Tty.command -> t -> t
+  val handle_command : Tty.event -> t -> t
 end = struct
   type t = int * char
 
@@ -45,7 +45,7 @@ end = struct
 
     let print_t t = print_endline (to_string t)
     let empty = init '@'
-    let repeat n (event : Tty.command) = List.init n (fun _ -> event)
+    let repeat n (event : Tty.event) = List.init n (fun _ -> event)
 
     let%expect_test "Empty" =
       print_t (progress_after empty []);

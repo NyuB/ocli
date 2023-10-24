@@ -5,7 +5,7 @@ type position =
   ; col : int
   }
 
-type command =
+type event =
   | Up
   | Right
   | Down
@@ -17,7 +17,7 @@ type command =
   | Unknown
   | Char of char
 
-let string_of_command = function
+let string_of_event = function
   | Up -> "Up"
   | Right -> "Right"
   | Down -> "Down"
@@ -54,7 +54,7 @@ let parse_resize char_list =
   |?* fun (r, t) -> parse_resize_col t |? fun (c, t) -> { row = r; col = c }, t
 ;;
 
-let commands_of_bytes bytes =
+let events_of_bytes bytes =
   let rec aux acc = function
     | [] -> List.rev acc
     | '\027' :: '\091' :: '\065' :: t -> aux (Up :: acc) t
@@ -174,7 +174,7 @@ end
 let send_chars out cmds = List.iter (Out_channel.output_char out) cmds
 let send_string out s = Out_channel.output_string out s
 
-let disable_default_terminal_behavior term_info =
+let default_behavior_disabled term_info =
   (* Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
      and input echo (printing of user input on the terminal output) *)
   Unix.{ term_info with c_icanon = false; c_echo = false }
@@ -186,7 +186,7 @@ let read_terminal_input terminal_fd =
   match List.exists (( = ) terminal_fd) ready with
   | true ->
     let read = Unix.read terminal_fd buf 0 48 in
-    Bytes.sub buf 0 read |> Bytes.to_seq |> List.of_seq |> commands_of_bytes
+    Bytes.sub buf 0 read |> Bytes.to_seq |> List.of_seq |> events_of_bytes
   | false -> []
 ;;
 
@@ -214,7 +214,7 @@ module type App = sig
 
   val init : model
   val view : model -> view_item list
-  val update : model -> command -> model
+  val update : model -> event -> model
 end
 
 let loop_app (module A : App) (module S : Styling) terminal out =
