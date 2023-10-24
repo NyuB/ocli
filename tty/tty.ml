@@ -104,6 +104,16 @@ type style =
   ; bold : bool
   }
 
+type view_item = position * style * string
+
+module type App = sig
+  type model
+
+  val init : model
+  val view : model -> view_item list
+  val update : model -> event -> model
+end
+
 module type Style_Default = sig
   val default_foreground_color : color
   val default_background_color : color
@@ -174,12 +184,6 @@ end
 let send_chars out cmds = List.iter (Out_channel.output_char out) cmds
 let send_string out s = Out_channel.output_string out s
 
-let default_behavior_disabled term_info =
-  (* Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
-     and input echo (printing of user input on the terminal output) *)
-  Unix.{ term_info with c_icanon = false; c_echo = false }
-;;
-
 let read_terminal_input terminal_fd =
   let ready, _, _ = Unix.select [ terminal_fd ] [] [] 0.01 in
   let buf = Bytes.create 48 in
@@ -207,15 +211,13 @@ let read_terminal_input_loop terminal out =
   aux ask_resize_freq
 ;;
 
-type view_item = position * style * string
-
-module type App = sig
-  type model
-
-  val init : model
-  val view : model -> view_item list
-  val update : model -> event -> model
-end
+let default_behavior_disabled term_info =
+  (*
+     c_icanon = false => disable special input pre processing
+     echo     = false => disable auto-printing of inputs to output
+  *)
+  Unix.{ term_info with c_icanon = false; c_echo = false }
+;;
 
 let loop_app (module A : App) (module S : Styling) terminal out =
   let tty_out_chars = send_chars out

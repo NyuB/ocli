@@ -3,6 +3,8 @@ type position =
   ; col : int
   }
 
+(** Terminal events
+    - [Size position] -> signals that the surrouding window has been resized to [position.row] x [position.col] *)
 type event =
   | Up
   | Right
@@ -35,22 +37,13 @@ type style =
   ; bold : bool
   }
 
-module type Style_Default = sig
-  val default_foreground_color : color
-  val default_background_color : color
-end
-
-module type Styling = sig
-  val default_style : style
-  val styled : style -> string -> string
-end
-
-module Style : functor (_ : Style_Default) -> Styling
-
-val default_behavior_disabled : Unix.terminal_io -> Unix.terminal_io
-
 type view_item = position * style * string
 
+(** Elm-like application :
+    - [model] represents the application state, [init] being the initial state
+    - [view] is the graphical projection of this model, here as strings positioned on a window
+    - [update] is the pure function computing the updated version of a model in response to a message (here terminal [events])
+      The actual tasks of rendering the view and implementing the event loop is left to the platform (see [loop_app]) *)
 module type App = sig
   type model
 
@@ -59,4 +52,26 @@ module type App = sig
   val update : model -> event -> model
 end
 
+module type Style_Default = sig
+  val default_foreground_color : color
+  val default_background_color : color
+end
+
+(** Surround strings with control sequences to render the given style *)
+module type Styling = sig
+  val default_style : style
+  val styled : style -> string -> string
+end
+
+module Style : functor (_ : Style_Default) -> Styling
+
+(** Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
+    and input echo (printing of user input on the terminal output) *)
+val default_behavior_disabled : Unix.terminal_io -> Unix.terminal_io
+
+(** [ loop_app (module A) (module S) terminal out ] loops indefinitely over the sequence:
+    + Compute the current view of the current [model: A.model] value (starting with [A.init])
+    + Render the view on [out] using [S.styled] to format each [view_item]
+    + Read [events] from [terminal]
+    + Compute the new model from the current one, feeding events to [A.update] *)
 val loop_app : (module App) -> (module Styling) -> Unix.file_descr -> out_channel -> unit
