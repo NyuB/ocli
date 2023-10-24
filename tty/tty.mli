@@ -52,6 +52,19 @@ module type App = sig
   val update : model -> event -> model
 end
 
+(** Represents the actual, potentially impure, engine used to render an application and implement the events poling and distribution *)
+module type Platform = sig
+  val render : view_item list -> unit
+  val poll_events : unit -> event list
+end
+
+(** [ loop_app (module A) (module P) terminal out ] loops indefinitely over the sequence:
+    + Compute the current view of the current [model: A.model] value (starting with [A.init])
+    + Render the view on [out] using [P.render]
+    + Read [events] from [P.poll_events]
+    + Compute the new model from the current one, feeding events to [A.update] *)
+val loop_app : (module App) -> (module Platform) -> unit
+
 module type Style_Default = sig
   val default_foreground_color : color
   val default_background_color : color
@@ -63,15 +76,17 @@ module type Styling = sig
   val styled : style -> string -> string
 end
 
-module Style : functor (_ : Style_Default) -> Styling
+module Posix_style : functor (_ : Style_Default) -> Styling
+
+module type Posix_terminal = sig
+  val terminal_in : Unix.file_descr
+  val terminal_out : Out_channel.t
+
+  module Style : Styling
+end
+
+module Posix_terminal_platform (_ : Posix_terminal) : Platform
 
 (** Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
     and input echo (printing of user input on the terminal output) *)
 val default_behavior_disabled : Unix.terminal_io -> Unix.terminal_io
-
-(** [ loop_app (module A) (module S) terminal out ] loops indefinitely over the sequence:
-    + Compute the current view of the current [model: A.model] value (starting with [A.init])
-    + Render the view on [out] using [S.styled] to format each [view_item]
-    + Read [events] from [terminal]
-    + Compute the new model from the current one, feeding events to [A.update] *)
-val loop_app : (module App) -> (module Styling) -> Unix.file_descr -> out_channel -> unit

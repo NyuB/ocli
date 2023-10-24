@@ -30,6 +30,49 @@ let string_of_event = function
   | Char c -> Printf.sprintf "Char %c" c
 ;;
 
+type color =
+  | Black
+  | White
+  | Red
+  | Green
+  | Blue
+  | Yellow
+  | Magenta
+  | Cyan
+  | Default
+
+type style =
+  { fg_color : color option
+  ; bg_color : color option
+  ; underlined : bool
+  ; bold : bool
+  }
+
+type view_item = position * style * string
+
+module type App = sig
+  type model
+
+  val init : model
+  val view : model -> view_item list
+  val update : model -> event -> model
+end
+
+module type Platform = sig
+  val render : view_item list -> unit
+  val poll_events : unit -> event list
+end
+
+let loop_app (module A : App) (module P : Platform) =
+  let rec loop model =
+    P.render (A.view model);
+    let events = P.poll_events () in
+    let updated = List.fold_left A.update model events in
+    loop updated
+  in
+  loop A.init
+;;
+
 let csi_seq = [ '\x1B'; '[' ]
 let csi chars = csi_seq @ chars
 let csi_str s = Printf.sprintf "\x1b[%s" s
@@ -86,34 +129,6 @@ let ask_dimensions =
 
 let hide_cursor = csi [ '?'; '2'; '5'; 'l' ]
 
-type color =
-  | Black
-  | White
-  | Red
-  | Green
-  | Blue
-  | Yellow
-  | Magenta
-  | Cyan
-  | Default
-
-type style =
-  { fg_color : color option
-  ; bg_color : color option
-  ; underlined : bool
-  ; bold : bool
-  }
-
-type view_item = position * style * string
-
-module type App = sig
-  type model
-
-  val init : model
-  val view : model -> view_item list
-  val update : model -> event -> model
-end
-
 module type Style_Default = sig
   val default_foreground_color : color
   val default_background_color : color
@@ -124,7 +139,7 @@ module type Styling = sig
   val styled : style -> string -> string
 end
 
-module Style (D : Style_Default) : Styling = struct
+module Posix_style (D : Style_Default) : Styling = struct
   let default_style =
     { fg_color = None; bg_color = None; underlined = false; bold = false }
   ;;
@@ -219,22 +234,27 @@ let default_behavior_disabled term_info =
   Unix.{ term_info with c_icanon = false; c_echo = false }
 ;;
 
-let loop_app (module A : App) (module S : Styling) terminal out =
-  let tty_out_chars = send_chars out
-  and tty_out_line s = send_string out s in
-  tty_out_chars hide_cursor;
-  Out_channel.flush out;
-  let rec loop model =
+module type Posix_terminal = sig
+  val terminal_in : Unix.file_descr
+  val terminal_out : Out_channel.t
+
+  module Style : Styling
+end
+
+module Posix_terminal_platform (T : Posix_terminal) : Platform = struct
+  let tty_out_chars = send_chars T.terminal_out
+  and tty_out_line s = send_string T.terminal_out s
+
+  let render view =
+    tty_out_chars hide_cursor;
     tty_out_chars clear_screen;
     List.iter
       (fun (p, s, str) ->
         tty_out_line (move p);
-        tty_out_line (S.styled s str))
-      (A.view model);
-    Out_channel.flush out;
-    let cmds = read_terminal_input_loop terminal out in
-    let updated = List.fold_left A.update model cmds in
-    loop updated
-  in
-  loop A.init
-;;
+        tty_out_line (T.Style.styled s str))
+      view;
+    Out_channel.flush T.terminal_out
+  ;;
+
+  let poll_events () = read_terminal_input_loop T.terminal_in T.terminal_out
+end

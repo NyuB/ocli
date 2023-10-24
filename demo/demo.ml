@@ -3,7 +3,7 @@ module Term_colors = struct
   let default_foreground_color = Tty.Default
 end
 
-module Term_style = Tty.Style (Term_colors)
+module Term_style = Tty.Posix_style (Term_colors)
 
 module Progress : sig
   type t

@@ -1,7 +1,7 @@
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 
-module Test_Style = Tty.Style (struct
+module Test_Style = Tty.Posix_style (struct
     let default_foreground_color = Tty.Black
     let default_background_color = Tty.White
   end)
