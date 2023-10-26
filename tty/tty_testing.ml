@@ -34,54 +34,51 @@ end = struct
   ;;
 end
 
-module Test_style = Tty.Posix_style (struct
-    let default_background_color = Tty.Default
-    let default_foreground_color = Tty.Default
-  end)
+module Tests = struct
+  module Test_App : Tty.App = struct
+    type model =
+      | Padd_even
+      | Padd_odd
 
-module Test_App : Tty.App = struct
-  type model =
-    | Padd_even
-    | Padd_odd
+    let init = Padd_even
 
-  let init = Padd_even
+    let padd model row line =
+      let style = Tty.Default_style.default_style in
+      match model with
+      | Padd_even ->
+        if row mod 2 = 0
+        then Tty.{ row; col = 3 }, style, line
+        else Tty.{ row; col = 1 }, style, line
+      | Padd_odd ->
+        if row mod 2 = 1
+        then Tty.{ row; col = 3 }, style, line
+        else Tty.{ row; col = 1 }, style, line
+    ;;
 
-  let padd model row line =
-    let style = Test_style.default_style in
-    match model with
-    | Padd_even ->
-      if row mod 2 = 0
-      then Tty.{ row; col = 3 }, style, line
-      else Tty.{ row; col = 1 }, style, line
-    | Padd_odd ->
-      if row mod 2 = 1
-      then Tty.{ row; col = 3 }, style, line
-      else Tty.{ row; col = 1 }, style, line
-  ;;
+    let view model =
+      [ "1 2 3"; "4 5 6"; "7 8 9" ] |> List.mapi (fun i s -> padd model (i + 1) s)
+    ;;
 
-  let view model =
-    [ "1 2 3"; "4 5 6"; "7 8 9" ] |> List.mapi (fun i s -> padd model (i + 1) s)
-  ;;
+    let update model _ =
+      match model with
+      | Padd_even -> Padd_odd
+      | Padd_odd -> Padd_even
+    ;;
+  end
 
-  let update model _ =
-    match model with
-    | Padd_even -> Padd_odd
-    | Padd_odd -> Padd_even
+  let%expect_test _ =
+    let model = Test_App.init in
+    Test_Platform.render (Test_App.view model);
+    List.iter print_endline (Test_Platform.lines ());
+    [%expect {|
+      1 2 3
+        4 5 6
+      7 8 9 |}];
+    Test_Platform.render (Test_App.view (Test_App.update model Tty.Enter));
+    List.iter print_endline (Test_Platform.lines ());
+    [%expect {|
+        1 2 3
+      4 5 6
+        7 8 9 |}]
   ;;
 end
-
-let%expect_test _ =
-  let model = Test_App.init in
-  Test_Platform.render (Test_App.view model);
-  List.iter print_endline (Test_Platform.lines ());
-  [%expect {|
-    1 2 3
-      4 5 6
-    7 8 9 |}];
-  Test_Platform.render (Test_App.view (Test_App.update model Tty.Enter));
-  List.iter print_endline (Test_Platform.lines ());
-  [%expect {|
-      1 2 3
-    4 5 6
-      7 8 9 |}]
-;;

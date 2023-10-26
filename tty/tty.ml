@@ -196,6 +196,11 @@ module Posix_style (D : Style_Default) : Styling = struct
   ;;
 end
 
+module Default_style = Posix_style (struct
+    let default_background_color = Default
+    let default_foreground_color = Default
+  end)
+
 let send_chars out cmds = List.iter (Out_channel.output_char out) cmds
 let send_string out s = Out_channel.output_string out s
 

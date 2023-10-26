@@ -77,6 +77,7 @@ module type Styling = sig
 end
 
 module Posix_style : functor (_ : Style_Default) -> Styling
+module Default_style : Styling
 
 module type Posix_terminal = sig
   val terminal_in : Unix.file_descr

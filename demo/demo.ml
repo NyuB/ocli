@@ -1,10 +1,3 @@
-module Term_colors = struct
-  let default_background_color = Tty.Default
-  let default_foreground_color = Tty.Default
-end
-
-module Term_style = Tty.Posix_style (Term_colors)
-
 module Progress : sig
   type t
 
@@ -88,52 +81,58 @@ module App : Tty.App = struct
 
   let dimension_info_line ({ row; col } : Tty.position) =
     ( Tty.{ row; col = 1 }
-    , Term_style.default_style
+    , Tty.Default_style.default_style
     , Printf.sprintf "(detected dimensions: %dx%d)" row col )
   ;;
 
   let display_check_lines (pos : Tty.position) =
     dimension_info_line pos
-    :: ([ ( Term_style.default_style
+    :: ([ ( Tty.Default_style.default_style
           , "The following lines surrounded by vvv and ^^^ are here to verify the \
              terminal display has the expected behavior" )
-        ; Term_style.default_style, String.make 80 'v'
-        ; { Term_style.default_style with fg_color = Some Red }, "This should appear Red"
-        ; ( { Term_style.default_style with fg_color = Some Green }
+        ; Tty.Default_style.default_style, String.make 80 'v'
+        ; ( { Tty.Default_style.default_style with fg_color = Some Red }
+          , "This should appear Red" )
+        ; ( { Tty.Default_style.default_style with fg_color = Some Green }
           , "This should appear Green" )
-        ; ( { Term_style.default_style with fg_color = Some Blue }
+        ; ( { Tty.Default_style.default_style with fg_color = Some Blue }
           , "This should appear Blue" )
-        ; ( { Term_style.default_style with fg_color = Some Yellow }
+        ; ( { Tty.Default_style.default_style with fg_color = Some Yellow }
           , "This should appear Yellow" )
-        ; ( { Term_style.default_style with fg_color = Some Magenta }
+        ; ( { Tty.Default_style.default_style with fg_color = Some Magenta }
           , "This should appear Magenta" )
-        ; ( { Term_style.default_style with fg_color = Some Cyan }
+        ; ( { Tty.Default_style.default_style with fg_color = Some Cyan }
           , "This should appear Cyan" )
-        ; { Term_style.default_style with bg_color = Some Red }, "This should appear Red"
-        ; ( { Term_style.default_style with bg_color = Some Green }
+        ; ( { Tty.Default_style.default_style with bg_color = Some Red }
+          , "This should appear Red" )
+        ; ( { Tty.Default_style.default_style with bg_color = Some Green }
           , "This should appear Green" )
-        ; ( { Term_style.default_style with bg_color = Some Blue }
+        ; ( { Tty.Default_style.default_style with bg_color = Some Blue }
           , "This should appear Blue" )
-        ; ( { Term_style.default_style with bg_color = Some Yellow }
+        ; ( { Tty.Default_style.default_style with bg_color = Some Yellow }
           , "This should appear Yellow" )
-        ; ( { Term_style.default_style with bg_color = Some Magenta }
+        ; ( { Tty.Default_style.default_style with bg_color = Some Magenta }
           , "This should appear Magenta" )
-        ; ( { Term_style.default_style with bg_color = Some Cyan }
+        ; ( { Tty.Default_style.default_style with bg_color = Some Cyan }
           , "This should appear Cyan" )
-        ; { Term_style.default_style with underlined = true }, "This should be underlined"
-        ; { Term_style.default_style with bold = true }, "This should be bold"
-        ; ( { Term_style.default_style with underlined = true; bold = true }
+        ; ( { Tty.Default_style.default_style with underlined = true }
+          , "This should be underlined" )
+        ; { Tty.Default_style.default_style with bold = true }, "This should be bold"
+        ; ( { Tty.Default_style.default_style with underlined = true; bold = true }
           , "This should be bold and underlined" )
         ; ( { bg_color = Some Yellow; fg_color = None; underlined = true; bold = false }
           , "This should be yellow and underlined" )
-        ; Term_style.default_style, String.make 80 '^'
-        ; Term_style.default_style, "Press Enter to proceed to the next phase of the demo"
+        ; Tty.Default_style.default_style, String.make 80 '^'
+        ; ( Tty.Default_style.default_style
+          , "Press Enter to proceed to the next phase of the demo" )
         ]
         |> List.mapi (fun i (s, str) -> Tty.{ row = i + 1; col = 1 }, s, str))
   ;;
 
   let simply_lines lines =
-    List.mapi (fun i l -> Tty.{ row = i + 1; col = 1 }, Term_style.default_style, l) lines
+    List.mapi
+      (fun i l -> Tty.{ row = i + 1; col = 1 }, Tty.Default_style.default_style, l)
+      lines
   ;;
 
   let hello =
