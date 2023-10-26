@@ -186,6 +186,7 @@ module Boiling = struct
 
     let%expect_test _ =
       print_lines (lines_of_t { level = Three_Fires; tick = false });
+      print_endline "\n======== Next =======\n";
       print_lines (lines_of_t { level = Three_Fires; tick = true });
       [%expect
         {|
@@ -205,6 +206,9 @@ module Boiling = struct
       |           |
       \___________/
        \|/ \|/ \|/
+
+      ======== Next =======
+
               )
             (
           (
