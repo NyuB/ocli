@@ -54,11 +54,12 @@ end
 
 (** Represents the actual, potentially impure, engine used to render an application and implement the events poling and distribution *)
 module type Platform = sig
+  val setup : unit -> unit
   val render : view_item list -> unit
   val poll_events : unit -> event list
 end
 
-(** [ loop_app (module A) (module P) terminal out ] loops indefinitely over the sequence:
+(** [ loop_app (module A) (module P) terminal out ] calls [P.setup ()] and then loops indefinitely over the sequence:
     + Compute the current view of the current [model: A.model] value (starting with [A.init])
     + Render the view on [out] using [P.render]
     + Read [events] from [P.poll_events]
@@ -87,7 +88,3 @@ module type Posix_terminal = sig
 end
 
 module Posix_terminal_platform (_ : Posix_terminal) : Platform
-
-(** Disable canonical character pre-processing (buffer flush trigger by \n instead of key by key)
-    and input echo (printing of user input on the terminal output) *)
-val default_behavior_disabled : Unix.terminal_io -> Unix.terminal_io

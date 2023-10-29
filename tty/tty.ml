@@ -59,11 +59,13 @@ module type App = sig
 end
 
 module type Platform = sig
+  val setup : unit -> unit
   val render : view_item list -> unit
   val poll_events : unit -> event list
 end
 
 let loop_app (module A : App) (module P : Platform) =
+  let () = P.setup () in
   let rec loop model =
     P.render (A.view model);
     let events = P.poll_events () in
@@ -249,6 +251,11 @@ end
 module Posix_terminal_platform (T : Posix_terminal) : Platform = struct
   let tty_out_chars = send_chars T.terminal_out
   and tty_out_line s = send_string T.terminal_out s
+
+  let setup () =
+    let info = Unix.tcgetattr T.terminal_in in
+    Unix.tcsetattr T.terminal_in Unix.TCSANOW (default_behavior_disabled info)
+  ;;
 
   let render view =
     tty_out_chars hide_cursor;

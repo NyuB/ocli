@@ -23,6 +23,8 @@ end = struct
     done
   ;;
 
+  let setup () = ()
+
   let render view =
     clean ();
     List.iter (fun ((pos : Tty.position), _, s) -> render_string_at pos s) view

@@ -1,13 +1,9 @@
 open Qol
 
 let () =
-  let term = Unix.stdin in
-  let info = Unix.tcgetattr term in
-  Unix.tcsetattr term Unix.TCSANOW (Tty.default_behavior_disabled info);
-  let out = Out_channel.stdout in
   let module Terminal = struct
-    let terminal_in = term
-    let terminal_out = out
+    let terminal_in = Unix.stdin
+    let terminal_out = Out_channel.stdout
 
     module Style = Tty.Default_style
   end
