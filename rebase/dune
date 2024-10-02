@@ -1,0 +1,19 @@
+(library
+ (name rebase)
+ (modules rebase)
+ (libraries tea tty)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
+
+(executable
+ (public_name rebase_edit)
+ (name rebase_edit)
+ (modules rebase_edit)
+ (libraries tea tty rebase))
+
+(executable
+ (public_name rebase_pass)
+ (name rebase_pass)
+ (modules rebase_pass)
+ (libraries))
