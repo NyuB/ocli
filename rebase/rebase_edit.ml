@@ -1,3 +1,15 @@
+module Terminal_platform_with_exit (Terminal : Tty.Posix_terminal) :
+  Tty.Ansi_Platform with type command = Rebase.rebase_app_command = struct
+  include Tty.Posix_terminal_platform (Terminal)
+
+  type command = Rebase.rebase_app_command
+
+  let handle_commands = function
+    | Rebase.Exit_with _ :: _ -> exit 0
+    | _ -> ()
+  ;;
+end
+
 let () =
   let module Terminal = struct
     let terminal_in = Unix.stdin
@@ -11,8 +23,6 @@ let () =
     let entries = Rebase.parse_rebase_file file
   end
   in
-  let module Terminal_platform = Tty.Posix_terminal_platform (Terminal) in
-  Sys.catch_break true;
-  try Tea.loop_app (module Rebase.App (Entries)) (module Terminal_platform) with
-  | Sys.Break -> exit 0
+  let module Terminal_platform = Terminal_platform_with_exit (Terminal) in
+  Tea.loop_app (module Rebase.App (Entries)) (module Terminal_platform)
 ;;
