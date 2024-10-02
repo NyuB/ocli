@@ -120,33 +120,90 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
 
   type command = rebase_app_command
 
+  type move_mode =
+    | Navigate
+    | Move
+
   type model =
     { entries : rebase_entry array
     ; cursor : int
+    ; mode : move_mode
     }
 
-  let init = { entries = Array.of_list E.entries; cursor = 0 }
+  let init = { entries = Array.of_list E.entries; cursor = 0; mode = Navigate }
 
-  let highlight_cursor i cursor =
-    if i = cursor
-    then { Tty.Default_style.default_style with bg_color = Some Tty.Cyan }
-    else { Tty.Default_style.default_style with bg_color = Some Tty.Red }
+  let highlight_entry i e model =
+    let style =
+      if i = model.cursor
+      then { Tty.Default_style.default_style with bg_color = Some Tty.Cyan }
+      else Tty.Default_style.default_style
+    in
+    let repr =
+      match model.mode with
+      | Navigate -> string_of_rebase_entry e
+      | Move ->
+        let prefix = if model.cursor = i then "^v " else "" in
+        prefix ^ string_of_rebase_entry e
+    in
+    style, repr
   ;;
 
-  let view { entries; cursor } : Tty.ansi_view_item list =
+  let view ({ entries; _ } as model) : Tty.ansi_view_item list =
     Array.mapi
       (fun i e ->
-        Tty.{ row = i + 1; col = 1 }, highlight_cursor i cursor, string_of_rebase_entry e)
+        let style, repr = highlight_entry i e model in
+        Tty.{ row = i + 1; col = 1 }, style, repr)
       entries
     |> Array.to_list
   ;;
 
+  let swap arr a b =
+    let copy = Array.copy arr in
+    let a_copy = arr.(a) in
+    copy.(a) <- arr.(b);
+    copy.(b) <- a_copy;
+    copy
+  ;;
+
+  let swap_entries model ~source_cursor ~target_cursor =
+    { model with
+      cursor = target_cursor
+    ; entries = swap model.entries source_cursor target_cursor
+    }
+  ;;
+
+  let move_up ({ cursor; _ } as model) =
+    if cursor <= 0
+    then model
+    else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor - 1)
+  ;;
+
+  let move_down ({ cursor; entries; _ } as model) =
+    if cursor >= Array.length entries - 1
+    then model
+    else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor + 1)
+  ;;
+
+  let set_rebase_command ({ cursor; entries; _ } as model) cmd =
+    let current = entries.(cursor) in
+    let copy = Array.copy entries in
+    copy.(cursor) <- { current with command = cmd };
+    { model with entries = copy }
+  ;;
+
   let update model (event : Tty.ansi_event) =
-    match event with
-    | Up -> { model with cursor = max 0 (model.cursor - 1) }, []
-    | Down ->
+    match event, model.mode with
+    | Up, Navigate -> { model with cursor = max 0 (model.cursor - 1) }, []
+    | Down, Navigate ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
-    | Esc -> model, [ Exit_with (Array.to_list model.entries) ]
+    | Up, Move -> move_up model, []
+    | Down, Move -> move_down model, []
+    | Left, Move -> { model with mode = Navigate }, []
+    | Right, Navigate -> { model with mode = Move }, []
+    | Esc, _ -> model, [ Exit_with (Array.to_list model.entries) ]
+    | Char 'f', _ | Char 'F', _ -> set_rebase_command model Fixup, []
+    | Char 'p', _ | Char 'P', _ -> set_rebase_command model Pick, []
+    | Char 'd', _ | Char 'D', _ | Del, _ -> set_rebase_command model Drop, []
     | _ -> model, []
   ;;
 end
