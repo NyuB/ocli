@@ -133,10 +133,13 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
   let init = { entries = Array.of_list E.entries; cursor = 0; mode = Navigate }
 
   let highlight_entry i e model =
+    let base_style =
+      { Tty.Default_style.default_style with striked = e.command = Drop }
+    in
     let style =
       if i = model.cursor
-      then { Tty.Default_style.default_style with bg_color = Some Tty.Cyan }
-      else Tty.Default_style.default_style
+      then { base_style with bg_color = Some Tty.Cyan }
+      else base_style
     in
     let repr =
       match model.mode with
