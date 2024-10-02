@@ -1,6 +1,6 @@
 (library
  (name demo)
- (libraries tty)
+ (libraries qol tty)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))

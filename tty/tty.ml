@@ -234,8 +234,11 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (T : Posix_terminal) : Ansi_Platform = struct
+module Posix_terminal_platform (T : Posix_terminal) :
+  Ansi_Platform with type command = Tea.no_command = struct
   include Ansi_Tea_Base
+
+  type command = Tea.no_command
 
   let tty_out_chars = send_chars T.terminal_out
   and tty_out_line s = send_string T.terminal_out s
@@ -257,4 +260,5 @@ module Posix_terminal_platform (T : Posix_terminal) : Ansi_Platform = struct
   ;;
 
   let poll_events () = read_terminal_input_loop T.terminal_in T.terminal_out
+  let handle_commands _ = ()
 end

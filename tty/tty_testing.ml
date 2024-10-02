@@ -1,9 +1,11 @@
 module Test_Platform : sig
-  include Tty.Ansi_Platform
+  include Tty.Ansi_Platform with type command = Tea.no_command
 
   val lines : unit -> string list
 end = struct
   include Tty.Ansi_Tea_Base
+
+  type command = Tea.no_command
 
   let rows = 50
   let cols = 100
@@ -36,12 +38,16 @@ end = struct
     Array.to_list current_rendering
     |> List.map (fun c_arr -> Array.to_seq c_arr |> String.of_seq)
   ;;
+
+  let handle_commands _ = ()
 end
 
 module Tests = struct
-  module Test_App :
-    Tea.App with type event := Tty.ansi_event and type view := Tty.ansi_view_item list =
-  struct
+  module Test_App : Tty.Ansi_App with type command = Tea.no_command = struct
+    include Tty.Ansi_Tea_Base
+
+    type command = Tea.no_command
+
     type model =
       | Padd_even
       | Padd_odd
@@ -66,9 +72,12 @@ module Tests = struct
     ;;
 
     let update model _ =
-      match model with
-      | Padd_even -> Padd_odd
-      | Padd_odd -> Padd_even
+      let next_model =
+        match model with
+        | Padd_even -> Padd_odd
+        | Padd_odd -> Padd_even
+      in
+      next_model, []
     ;;
   end
 
@@ -80,7 +89,7 @@ module Tests = struct
       1 2 3
         4 5 6
       7 8 9 |}];
-    Test_Platform.render (Test_App.view (Test_App.update model Tty.Enter));
+    Test_Platform.render (Test_App.view (Qol.first @@ Test_App.update model Tty.Enter));
     List.iter print_endline (Test_Platform.lines ());
     [%expect {|
         1 2 3

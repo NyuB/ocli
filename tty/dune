@@ -11,7 +11,7 @@
 (library
  (name tty_testing)
  (modules tty_testing)
- (libraries tty tea)
+ (libraries qol tty tea)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))

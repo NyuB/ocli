@@ -68,8 +68,10 @@ end = struct
   end
 end
 
-module App : Tty.Ansi_App = struct
+module App : Tty.Ansi_App with type command = Tea.no_command = struct
   include Tty.Ansi_Tea_Base
+
+  type command = Tea.no_command
 
   type phase =
     | Hello
@@ -187,13 +189,16 @@ module App : Tty.Ansi_App = struct
   ;;
 
   let update (pos, model) message =
-    match model, message with
-    | m, Tty.Size p -> p, m
-    | Hello, Tty.Enter -> pos, Display_check
-    | Display_check, Tty.Enter -> pos, Progress_bar (Progress.init '@')
-    | Progress_bar _, Tty.Enter -> pos, End
-    | Progress_bar b, msg -> pos, Progress_bar (Progress.handle_command msg b)
-    | m, _ -> pos, m
+    let next_model =
+      match model, message with
+      | m, Tty.Size p -> p, m
+      | Hello, Tty.Enter -> pos, Display_check
+      | Display_check, Tty.Enter -> pos, Progress_bar (Progress.init '@')
+      | Progress_bar _, Tty.Enter -> pos, End
+      | Progress_bar b, msg -> pos, Progress_bar (Progress.handle_command msg b)
+      | m, _ -> pos, m
+    in
+    next_model, []
   ;;
 
   module Tests = struct
@@ -209,7 +214,10 @@ module App : Tty.Ansi_App = struct
     ;;
 
     let print_t (pos, m) = print_endline (repr_model pos m)
-    let play_events model events = List.fold_left update model events
+
+    let play_events model events =
+      List.fold_left (fun m e -> Qol.first @@ update m e) model events
+    ;;
 
     let%expect_test "Hello then Display check then Progress bar then End" =
       let enter m = play_events m [ Enter ] in

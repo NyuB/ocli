@@ -103,8 +103,10 @@ module Boiling = struct
     | Three_Fires -> lines (smoke t smoke_three) @ lines boiling_base @ [ fire_three ]
   ;;
 
-  module App : Tty.Ansi_App = struct
+  module App : Tty.Ansi_App with type command = Tea.no_command = struct
     include Tty.Ansi_Tea_Base
+
+    type command = Tea.no_command
 
     module S = Tty.Posix_style (struct
         let default_foreground_color = Tty.Default
@@ -130,12 +132,15 @@ module Boiling = struct
 
     let update model msg =
       let open Tty in
-      match msg with
-      | Size dim -> { model with dim }
-      | Right | Left -> { model with boiling = tick model.boiling }
-      | Char '+' -> { model with boiling = increase_level model.boiling }
-      | Char '-' -> { model with boiling = decrease_level model.boiling }
-      | _ -> model
+      let next_model =
+        match msg with
+        | Size dim -> { model with dim }
+        | Right | Left -> { model with boiling = tick model.boiling }
+        | Char '+' -> { model with boiling = increase_level model.boiling }
+        | Char '-' -> { model with boiling = decrease_level model.boiling }
+        | _ -> model
+      in
+      next_model, []
     ;;
   end
 

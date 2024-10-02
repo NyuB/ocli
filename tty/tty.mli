@@ -71,4 +71,5 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (_ : Posix_terminal) : Ansi_Platform
+module Posix_terminal_platform (_ : Posix_terminal) :
+  Ansi_Platform with type command = Tea.no_command

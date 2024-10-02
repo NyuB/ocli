@@ -113,8 +113,10 @@ module type Entries = sig
   val entries : rebase_entry list
 end
 
-module App (E : Entries) : Tty.Ansi_App = struct
+module App (E : Entries) : Tty.Ansi_App with type command = Tea.no_command = struct
   include Tty.Ansi_Tea_Base
+
+  type command = Tea.no_command
 
   type model =
     { entries : rebase_entry array
@@ -138,11 +140,14 @@ module App (E : Entries) : Tty.Ansi_App = struct
   ;;
 
   let update model (event : Tty.ansi_event) =
-    match event with
-    | Up -> { model with cursor = max 0 (model.cursor - 1) }
-    | Down ->
-      { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }
-    | _ -> model
+    let next_model =
+      match event with
+      | Up -> { model with cursor = max 0 (model.cursor - 1) }
+      | Down ->
+        { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }
+      | _ -> model
+    in
+    next_model, []
   ;;
 end
 

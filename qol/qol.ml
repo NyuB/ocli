@@ -21,6 +21,8 @@ end = struct
   ;;
 end
 
+let first (a, _) = a
+
 let ( |?: ) opt lazy_default =
   match opt with
   | None -> Lazy.force lazy_default
