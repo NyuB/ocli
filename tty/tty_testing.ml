@@ -1,8 +1,10 @@
 module Test_Platform : sig
-  include Tty.Platform
+  include Tty.Ansi_Platform
 
   val lines : unit -> string list
 end = struct
+  include Tty.Ansi_Tea_Base
+
   let rows = 50
   let cols = 100
   let current_rendering = Array.init rows (fun _ -> Array.make cols ' ')
@@ -37,7 +39,9 @@ end = struct
 end
 
 module Tests = struct
-  module Test_App : Tty.App = struct
+  module Test_App :
+    Tea.App with type event := Tty.ansi_event and type view := Tty.ansi_view_item list =
+  struct
     type model =
       | Padd_even
       | Padd_odd

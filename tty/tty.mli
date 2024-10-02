@@ -5,7 +5,7 @@ type position =
 
 (** Terminal events
     - [Size position] -> signals that the surrouding window has been resized to [position.row] x [position.col] *)
-type event =
+type ansi_event =
   | Up
   | Right
   | Down
@@ -17,7 +17,7 @@ type event =
   | Unknown
   | Char of char
 
-val string_of_event : event -> string
+val string_of_ansi_event : ansi_event -> string
 
 type color =
   | Black
@@ -37,34 +37,18 @@ type style =
   ; bold : bool
   }
 
-type view_item = position * style * string
+type ansi_view_item = position * style * string
 
-(** Elm-like application :
-    - [model] represents the application state, [init] being the initial state
-    - [view] is the graphical projection of this model, here as strings positioned on a window
-    - [update] is the pure function computing the updated version of a model in response to a message (here terminal [events])
-      The actual tasks of rendering the view and implementing the event loop is left to the platform (see [loop_app]) *)
-module type App = sig
-  type model
+module type Ansi_App =
+  Tea.App with type event = ansi_event and type view = ansi_view_item list
 
-  val init : model
-  val view : model -> view_item list
-  val update : model -> event -> model
+module type Ansi_Platform =
+  Tea.Platform with type event = ansi_event and type view = ansi_view_item list
+
+module Ansi_Tea_Base : sig
+  type event = ansi_event
+  type view = ansi_view_item list
 end
-
-(** Represents the actual, potentially impure, engine used to render an application and implement the events poling and distribution *)
-module type Platform = sig
-  val setup : unit -> unit
-  val render : view_item list -> unit
-  val poll_events : unit -> event list
-end
-
-(** [ loop_app (module A) (module P) terminal out ] calls [P.setup ()] and then loops indefinitely over the sequence:
-    + Compute the current view of the current [model: A.model] value (starting with [A.init])
-    + Render the view on [out] using [P.render]
-    + Read [events] from [P.poll_events]
-    + Compute the new model from the current one, feeding events to [A.update] *)
-val loop_app : (module App) -> (module Platform) -> unit
 
 module type Style_Default = sig
   val default_foreground_color : color
@@ -87,4 +71,4 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (_ : Posix_terminal) : Platform
+module Posix_terminal_platform (_ : Posix_terminal) : Ansi_Platform

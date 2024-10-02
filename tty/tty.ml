@@ -5,7 +5,7 @@ type position =
   ; col : int
   }
 
-type event =
+type ansi_event =
   | Up
   | Right
   | Down
@@ -17,7 +17,7 @@ type event =
   | Unknown
   | Char of char
 
-let string_of_event = function
+let string_of_ansi_event = function
   | Up -> "Up"
   | Right -> "Right"
   | Down -> "Down"
@@ -48,32 +48,18 @@ type style =
   ; bold : bool
   }
 
-type view_item = position * style * string
+type ansi_view_item = position * style * string
 
-module type App = sig
-  type model
+module type Ansi_App =
+  Tea.App with type event = ansi_event and type view = ansi_view_item list
 
-  val init : model
-  val view : model -> view_item list
-  val update : model -> event -> model
+module type Ansi_Platform =
+  Tea.Platform with type event = ansi_event and type view = ansi_view_item list
+
+module Ansi_Tea_Base = struct
+  type event = ansi_event
+  type view = ansi_view_item list
 end
-
-module type Platform = sig
-  val setup : unit -> unit
-  val render : view_item list -> unit
-  val poll_events : unit -> event list
-end
-
-let loop_app (module A : App) (module P : Platform) =
-  let () = P.setup () in
-  let rec loop model =
-    P.render (A.view model);
-    let events = P.poll_events () in
-    let updated = List.fold_left A.update model events in
-    loop updated
-  in
-  loop A.init
-;;
 
 let csi_seq = [ '\x1B'; '[' ]
 let csi chars = csi_seq @ chars
@@ -248,7 +234,9 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (T : Posix_terminal) : Platform = struct
+module Posix_terminal_platform (T : Posix_terminal) : Ansi_Platform = struct
+  include Ansi_Tea_Base
+
   let tty_out_chars = send_chars T.terminal_out
   and tty_out_line s = send_string T.terminal_out s
 

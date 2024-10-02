@@ -8,6 +8,6 @@ let () =
     module Style = Tty.Default_style
   end
   in
-  let module Terminal_platform : Tty.Platform = Tty.Posix_terminal_platform (Terminal) in
-  Tty.loop_app (module Slides.Boiling.App) (module Terminal_platform)
+  let module Terminal_platform = Tty.Posix_terminal_platform (Terminal) in
+  Tea.loop_app (module Slides.Boiling.App) (module Terminal_platform)
 ;;

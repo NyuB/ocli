@@ -1,12 +1,17 @@
 (library
  (name tty)
  (modules tty)
- (libraries qol unix))
+ (libraries qol tea unix))
+
+(library
+ (name tea)
+ (modules tea)
+ (libraries qol))
 
 (library
  (name tty_testing)
  (modules tty_testing)
- (libraries tty)
+ (libraries tty tea)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))

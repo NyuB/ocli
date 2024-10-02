@@ -103,7 +103,9 @@ module Boiling = struct
     | Three_Fires -> lines (smoke t smoke_three) @ lines boiling_base @ [ fire_three ]
   ;;
 
-  module App : Tty.App = struct
+  module App : Tty.Ansi_App = struct
+    include Tty.Ansi_Tea_Base
+
     module S = Tty.Posix_style (struct
         let default_foreground_color = Tty.Default
         let default_background_color = Tty.Default
