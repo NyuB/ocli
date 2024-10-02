@@ -211,7 +211,12 @@ let mixed_styling =
         "Invalid tty sequence for underlined yelow background"
         "\027[4;43mContent\027[30;47;0m"
         (Test_Style.styled
-           { bg_color = Some Yellow; fg_color = None; underlined = true; bold = false }
+           { bg_color = Some Yellow
+           ; fg_color = None
+           ; underlined = true
+           ; bold = false
+           ; striked = false
+           }
            "Content") )
 ;;
 
@@ -222,7 +227,12 @@ let no_styling =
         "Should return the string as is if no styling is applied"
         "Content"
         (Test_Style.styled
-           { bg_color = None; fg_color = None; underlined = false; bold = false }
+           { bg_color = None
+           ; fg_color = None
+           ; underlined = false
+           ; bold = false
+           ; striked = false
+           }
            "Content") )
 ;;
 

@@ -35,6 +35,7 @@ type style =
   ; bg_color : color option
   ; underlined : bool
   ; bold : bool
+  ; striked : bool
   }
 
 type ansi_view_item = position * style * string

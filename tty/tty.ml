@@ -46,6 +46,7 @@ type style =
   ; bg_color : color option
   ; underlined : bool
   ; bold : bool
+  ; striked : bool
   }
 
 type ansi_view_item = position * style * string
@@ -129,7 +130,12 @@ end
 
 module Posix_style (D : Style_Default) : Styling = struct
   let default_style =
-    { fg_color = None; bg_color = None; underlined = false; bold = false }
+    { fg_color = None
+    ; bg_color = None
+    ; underlined = false
+    ; bold = false
+    ; striked = false
+    }
   ;;
 
   let fg_code = function
@@ -160,6 +166,7 @@ module Posix_style (D : Style_Default) : Styling = struct
   let fg_str c = Printf.sprintf "%d" (fg_code c)
   let ul_str b = if b then Some "4" else None
   let bold_str b = if b then Some "1" else None
+  let striked_str b = if b then Some "9" else None
 
   let csi_defaults =
     csi_str
@@ -173,6 +180,7 @@ module Posix_style (D : Style_Default) : Styling = struct
     let commands =
       [ ul_str style.underlined
       ; bold_str style.bold
+      ; striked_str style.striked
       ; style.bg_color |? bg_str
       ; style.fg_color |? fg_str
       ]

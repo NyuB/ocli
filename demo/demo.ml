@@ -121,10 +121,17 @@ module App : Tty.Ansi_App with type command = Tea.no_command = struct
           , "This should appear Cyan" )
         ; ( { Tty.Default_style.default_style with underlined = true }
           , "This should be underlined" )
+        ; ( { Tty.Default_style.default_style with striked = true }
+          , "This should be striked out" )
         ; { Tty.Default_style.default_style with bold = true }, "This should be bold"
         ; ( { Tty.Default_style.default_style with underlined = true; bold = true }
           , "This should be bold and underlined" )
-        ; ( { bg_color = Some Yellow; fg_color = None; underlined = true; bold = false }
+        ; ( { bg_color = Some Yellow
+            ; fg_color = None
+            ; underlined = true
+            ; bold = false
+            ; striked = false
+            }
           , "This should be yellow and underlined" )
         ; Tty.Default_style.default_style, String.make 80 '^'
         ; ( Tty.Default_style.default_style
