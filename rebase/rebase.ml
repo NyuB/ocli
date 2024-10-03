@@ -85,7 +85,7 @@ let rec sublist n l =
 let parse_entry (line : string) : rebase_entry option =
   let line = String.trim line in
   let parts = String.split_on_char ' ' line in
-  if List.length parts > 3 && String.equal (List.hd parts) "pick"
+  if List.length parts >= 3 && String.equal (List.hd parts) "pick"
   then
     Some
       { command = Pick
@@ -259,6 +259,54 @@ module Tests = struct
       pick: 8e46867 'Add default style to Tty module'
       pick: ee88f85 'Make test output more readable'
       pick: e24e6e4 'Move setup logic to Platform modules'
+      pick: 8a6ece0 'wip'
+      |}]
+  ;;
+
+  let test_entries =
+    [ "pick 1a A"; "pick 2b B"; "pick 3c C"; "pick 4d D" ] |> parse_entries
+  ;;
+
+  module Test_App = App (struct
+      let entries = test_entries
+    end)
+
+  let play_events model events =
+    List.fold_left (fun m e -> Qol.first @@ Test_App.update m e) model events
+  ;;
+
+  let print_render model =
+    Tty_testing.Test_Platform.render @@ Test_App.view model;
+    List.iter print_endline (Tty_testing.Test_Platform.lines ())
+  ;;
+
+  let%expect_test "Navigate between commits" =
+    let down_right = play_events Test_App.init [ Down; Right ] in
+    print_render down_right;
+    [%expect
+      {|
+      pick: 1a 'A'
+      ^v pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let up = play_events down_right [ Up ] in
+    print_render up;
+    [%expect
+      {|
+      ^v pick: 2b 'B'
+      pick: 1a 'A'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let down_down_left = play_events up [ Down; Down; Left ] in
+    print_render down_down_left;
+    [%expect
+      {|
+      pick: 1a 'A'
+      pick: 3c 'C'
+      pick: 2b 'B'
+      pick: 4d 'D'
       |}]
   ;;
 end
