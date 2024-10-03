@@ -69,10 +69,26 @@ type rebase_entry =
   { command : rebase_command
   ; sha1 : string
   ; message : string
+  ; renamed : bool
   }
 
-let string_of_rebase_entry { command; sha1; message } =
-  Printf.sprintf "%s: %s '%s'" (string_of_rebase_command command) sha1 message
+let string_of_rebase_entry { command; sha1; message; renamed } =
+  Printf.sprintf
+    "%s: %s '%s'%s"
+    (string_of_rebase_command command)
+    sha1
+    message
+    (if renamed then "(renamed)" else "")
+;;
+
+let git_todo_of_rebase_entry { command; sha1; message; renamed } : string list =
+  let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message
+  and exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" message in
+  if renamed then [ base; exec_rename ] else [ base ]
+;;
+
+let git_todo_of_rebase_entries (entries : rebase_entry list) : string list =
+  List.concat_map git_todo_of_rebase_entry entries
 ;;
 
 let rec sublist n l =
@@ -91,6 +107,7 @@ let parse_entry (line : string) : rebase_entry option =
       { command = Pick
       ; sha1 = List.nth parts 1
       ; message = String.concat " " (sublist 2 parts)
+      ; renamed = false
       }
   else None
 ;;
@@ -120,17 +137,22 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
 
   type command = rebase_app_command
 
-  type move_mode =
+  type mode =
     | Navigate
     | Move
+    | Rename of string
 
   type model =
     { entries : rebase_entry array
     ; cursor : int
-    ; mode : move_mode
+    ; mode : mode
     }
 
   let init = { entries = Array.of_list E.entries; cursor = 0; mode = Navigate }
+
+  let string_of_renaming_entry { command; sha1; _ } rename =
+    Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
+  ;;
 
   let highlight_entry i e model =
     let base_style =
@@ -144,9 +166,10 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
     let repr =
       match model.mode with
       | Navigate -> string_of_rebase_entry e
-      | Move ->
-        let prefix = if model.cursor = i then "^v " else "" in
-        prefix ^ string_of_rebase_entry e
+      | Move when model.cursor <> i -> string_of_rebase_entry e
+      | Rename _ when model.cursor <> i -> string_of_rebase_entry e
+      | Move -> "^v " ^ string_of_rebase_entry e
+      | Rename s -> string_of_renaming_entry e s
     in
     style, repr
   ;;
@@ -194,6 +217,17 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
     { model with entries = copy }
   ;;
 
+  let set_name ({ cursor; entries; _ } as model) name =
+    let current = entries.(cursor) in
+    let copy = Array.copy entries in
+    copy.(cursor) <- { current with message = name; renamed = true };
+    { model with entries = copy; mode = Navigate }
+  ;;
+
+  let del_rename s =
+    if String.length s = 0 then s else String.sub s 0 (String.length s - 1)
+  ;;
+
   let update model (event : Tty.ansi_event) =
     match event, model.mode with
     | Up, Navigate -> { model with cursor = max 0 (model.cursor - 1) }, []
@@ -204,6 +238,11 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
     | Left, Move -> { model with mode = Navigate }, []
     | Right, Navigate -> { model with mode = Move }, []
     | Esc, _ -> model, [ Exit_with (Array.to_list model.entries) ]
+    | Enter, Rename name -> set_name model name, []
+    | Left, Rename _ -> { model with mode = Navigate }, []
+    | Right, Move -> { model with mode = Rename "" }, []
+    | Char c, Rename s -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
+    | Del, Rename s -> { model with mode = Rename (del_rename s) }, []
     | Char 'f', _ | Char 'F', _ -> set_rebase_command model Fixup, []
     | Char 'p', _ | Char 'P', _ -> set_rebase_command model Pick, []
     | Char 'd', _ | Char 'D', _ | Del, _ -> set_rebase_command model Drop, []
@@ -271,7 +310,7 @@ module Tests = struct
       let entries = test_entries
     end)
 
-  let play_events model events =
+  let play_events events model =
     List.fold_left (fun m e -> Qol.first @@ Test_App.update m e) model events
   ;;
 
@@ -281,7 +320,7 @@ module Tests = struct
   ;;
 
   let%expect_test "Navigate between commits" =
-    let down_right = play_events Test_App.init [ Down; Right ] in
+    let down_right = play_events [ Down; Right ] Test_App.init in
     print_render down_right;
     [%expect
       {|
@@ -290,7 +329,7 @@ module Tests = struct
       pick: 3c 'C'
       pick: 4d 'D'
       |}];
-    let up = play_events down_right [ Up ] in
+    let up = play_events [ Up ] down_right in
     print_render up;
     [%expect
       {|
@@ -299,7 +338,7 @@ module Tests = struct
       pick: 3c 'C'
       pick: 4d 'D'
       |}];
-    let down_down_left = play_events up [ Down; Down; Left ] in
+    let down_down_left = play_events [ Down; Down; Left ] up in
     print_render down_down_left;
     [%expect
       {|
@@ -307,6 +346,49 @@ module Tests = struct
       pick: 3c 'C'
       pick: 2b 'B'
       pick: 4d 'D'
+      |}]
+  ;;
+
+  let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
+
+  let%expect_test "Rename a commit" =
+    let right_right = play_events [ Right; Right ] Test_App.init in
+    print_render right_right;
+    [%expect
+      {|
+      pick: 1a ''(renaming)
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let renamed =
+      play_events (chars "Awesome name!") right_right |> play_events [ Enter ]
+    in
+    print_render renamed;
+    [%expect
+      {|
+      pick: 1a 'Awesome name!'(renamed)
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}]
+  ;;
+
+  let%expect_test "Renaming a commit adds an exec entry" =
+    let entries =
+      [ { command = Pick; sha1 = "A"; message = "aaa"; renamed = false }
+      ; { command = Pick; sha1 = "B"; message = "RENAMED"; renamed = true }
+      ; { command = Pick; sha1 = "C"; message = "ccc"; renamed = false }
+      ]
+    in
+    let to_git = git_todo_of_rebase_entries entries in
+    List.iter print_endline to_git;
+    [%expect
+      {|
+      pick A aaa
+      pick B RENAMED
+      exec git commit --amend -m 'RENAMED'
+      pick C ccc
       |}]
   ;;
 end
