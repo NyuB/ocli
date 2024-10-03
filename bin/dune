@@ -1,5 +1,0 @@
-(executable
- (public_name tty_demo)
- (name main)
- (modules main)
- (libraries demo qol tty unix))

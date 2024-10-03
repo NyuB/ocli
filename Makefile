@@ -19,7 +19,7 @@ build:
 	dune build
 
 demo:
-	dune exec tty_demo
+	dune exec demo_tty
 
 install-rebase: build
 	# Copy the executables into installation directory

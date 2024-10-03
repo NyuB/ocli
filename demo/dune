@@ -1,6 +1,27 @@
 (library
  (name demo)
+ (modules demo)
  (libraries qol tty)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))
+
+(executable
+ (public_name demo_tty)
+ (name demo_main)
+ (modules demo_main)
+ (libraries demo qol tty unix))
+
+(library
+ (name boiling)
+ (modules boiling)
+ (libraries tty)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
+
+(executable
+ (public_name demo_boiling)
+ (name demo_boiling)
+ (modules demo_boiling)
+ (libraries boiling qol tty unix))

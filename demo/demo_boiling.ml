@@ -9,5 +9,5 @@ let () =
   end
   in
   let module Terminal_platform = Tty.Posix_terminal_platform (Terminal) in
-  Tea.loop_app (module Slides.Boiling.App) (module Terminal_platform)
+  Tea.loop_app (module Boiling.App) (module Terminal_platform)
 ;;
