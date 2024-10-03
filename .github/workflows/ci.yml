@@ -7,8 +7,17 @@ on:
   pull_request:
     branches: [ "main" ]
 
-  # Allows to run this workflow manually from the Actions tab
+  # Manual trigger for release
   workflow_dispatch:
+    inputs:
+      name:
+        description: 'Release name'
+        required: true
+        default: 'snapshot'
+      text:
+        description: 'Release description'
+        required: true
+        default: 'Snapshot build of the main branch'
 
 jobs:
   build:
@@ -26,5 +35,23 @@ jobs:
       - name: Tests
         run: |
           eval $(opam env --set-switch)
-          dune test
+          make test
+
+      - name: Build rebase_edit executable
+        run: |
+          eval $(opam env --set-switch)
+          make install-rebase INSTALL_ROOT=.
+
+      - name: Release
+        # Only if manually triggered
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.event.inputs.name }}
+          tag_name: ${{ github.event.inputs.name }}
+          target_commitish: main
+          body: ${{ github.event.inputs.text }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            rebase_edit
 
