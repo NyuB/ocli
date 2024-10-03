@@ -19,6 +19,7 @@ module Terminal_platform_with_exit
   let handle_commands = function
     | Rebase.Exit_with entries :: _ ->
       write_git_entries Target.file entries;
+      restore_terminal_state ();
       exit 0
     | _ -> ()
   ;;

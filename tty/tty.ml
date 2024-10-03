@@ -116,6 +116,7 @@ let ask_dimensions =
   csi [ '9'; '9'; '9'; csi_comma; '9'; '9'; '9'; 'H' ] @ csi [ '6'; 'n' ]
 ;;
 
+let show_cursor = csi [ '?'; '2'; '5'; 'h' ]
 let hide_cursor = csi [ '?'; '2'; '5'; 'l' ]
 
 module type Style_Default = sig
@@ -242,8 +243,11 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (T : Posix_terminal) :
-  Ansi_Platform with type command = Tea.no_command = struct
+module Posix_terminal_platform (T : Posix_terminal) : sig
+  include Ansi_Platform with type command = Tea.no_command
+
+  val restore_terminal_state : unit -> unit
+end = struct
   include Ansi_Tea_Base
 
   type command = Tea.no_command
@@ -269,4 +273,5 @@ module Posix_terminal_platform (T : Posix_terminal) :
 
   let poll_events () = read_terminal_input_loop T.terminal_in T.terminal_out
   let handle_commands _ = ()
+  let restore_terminal_state () = tty_out_chars show_cursor
 end

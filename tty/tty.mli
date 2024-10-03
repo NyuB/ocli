@@ -72,5 +72,9 @@ module type Posix_terminal = sig
   module Style : Styling
 end
 
-module Posix_terminal_platform (_ : Posix_terminal) :
-  Ansi_Platform with type command = Tea.no_command
+module Posix_terminal_platform (_ : Posix_terminal) : sig
+  include Ansi_Platform with type command = Tea.no_command
+
+  (** Reset terminal display modifications such as cursor position or visibility that may have been altered for rendering *)
+  val restore_terminal_state : unit -> unit
+end
