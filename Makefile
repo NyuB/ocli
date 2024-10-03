@@ -12,6 +12,9 @@ test-promote:
 fmt:
 	-dune fmt
 
+fmt-check:
+	dune build @fmt
+
 build:
 	dune build
 

@@ -9,6 +9,6 @@
 (package (name ocli) (synopsis "OCaml terminal interaction demo")
   (description
     "Minimal skeleton for terminal interaction using termios and terminal control sequences")
-  (depends (ocaml (>= 5.0)) dune unix (alcotest :with-test)
-    (ocamlformat :with-test) (ppx_expect :with-test))
+  (depends (ocaml (>= 5.0)) dune (alcotest :with-test)
+    (ocamlformat :with-test) (ppx_expect :with-test) (sexplib :with-test))
   (tags (cli termios tty)))

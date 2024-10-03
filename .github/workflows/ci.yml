@@ -1,4 +1,6 @@
 name: CI
+# Rename with 'name' input for manually triggered builds
+run-name: ${{ github.event.inputs.name }}
 
 on:
   # Triggers the workflow on push or pull request events
@@ -23,7 +25,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install opam
         run: |
@@ -31,6 +33,11 @@ jobs:
           opam init -y --shell-setup
           eval $(opam env)
           opam switch create -y --with-test .
+
+      - name: Enforce source code formatting
+        run: |
+          eval $(opam env --set-switch)
+          make fmt-check
           
       - name: Tests
         run: |

@@ -13,10 +13,10 @@ bug-reports: "https://github.com/NyuB/ocli/issues"
 depends: [
   "ocaml" {>= "5.0"}
   "dune" {>= "3.11"}
-  "unix"
   "alcotest" {with-test}
   "ocamlformat" {with-test}
   "ppx_expect" {with-test}
+  "sexplib" {with-test}
   "odoc" {with-doc}
 ]
 build: [
