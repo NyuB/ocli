@@ -1,0 +1,9 @@
+#!/bin/bash
+
+GIT_EDITOR=rebase_edit git rebase -i $1
+# Unfortunately rebase_edit currenlty leaves the terminal display in an unstable state,
+# sometimes making the subsequent typings invisible
+# Reset terminal to avoid this while looking for a solution  
+reset
+# Where are we now ...
+git status

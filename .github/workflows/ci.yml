@@ -53,5 +53,5 @@ jobs:
           body: ${{ github.event.inputs.text }}
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
+            newbase
             rebase_edit
-

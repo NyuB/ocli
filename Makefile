@@ -19,7 +19,9 @@ demo:
 	dune exec tty_demo
 
 install-rebase: build
-	# Copy the executable into installation directory
+	# Copy the executables into installation directory
 	cp _build/install/default/bin/rebase_edit $(INSTALL_ROOT)/rebase_edit
-	# Make the installed file writable to allow future deletion or replacement
+	cp rebase/newbase $(INSTALL_ROOT)/newbase
+	# Make the installed files writable to allow future deletion or replacement
 	chmod +w $(INSTALL_ROOT)/rebase_edit
+	chmod +w $(INSTALL_ROOT)/newbase
