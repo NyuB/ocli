@@ -145,25 +145,23 @@ module App (Info : Rebase_info_external) :
     |> max_or_zero ~by:(fun (_, s) -> String.length s + 1)
   ;;
 
-  let entry_count model = Array.length model.entries
   let current_entry model = model.entries.(model.cursor)
   let current_sha1 model = (current_entry model).sha1
 
-  let right_panel_border model =
-    let col = right_panel_col_start model in
-    List.init (entry_count model) (fun i ->
-      Tty.{ row = i + 1; col = col + 1 }, Tty.Default_style.default_style, "|")
-  ;;
-
-  let right_panel_content model =
+  let right_panel_view model =
     let files = Info.modified_files (current_sha1 model)
     and col = right_panel_col_start model in
-    List.mapi
-      (fun i f -> Tty.{ row = i + 1; col = col + 3 }, Tty.Default_style.default_style, f)
-      files
+    let border =
+      List.init (List.length files) (fun i ->
+        Tty.{ row = i + 1; col = col + 1 }, Tty.Default_style.default_style, "|")
+    and content =
+      List.mapi
+        (fun i f ->
+          Tty.{ row = i + 1; col = col + 3 }, Tty.Default_style.default_style, f)
+        files
+    in
+    border @ content
   ;;
-
-  let right_panel_view model = right_panel_border model @ right_panel_content model
 
   let view ({ entries; _ } as model) : Tty.ansi_view_item list =
     let entries =
@@ -300,61 +298,67 @@ module Tests = struct
     [ "pick 1a A"; "pick 2b B"; "pick 3c C"; "pick 4d D" ] |> parse_entries
   ;;
 
-  module Test_Info = App (struct
-      let entries = test_entries
-      let modified_files _ = []
-    end)
+  module Test_Info = struct
+    let entries = test_entries
+    let modified_files _ = []
+  end
 
-  let play_events events model =
-    List.fold_left (fun m e -> Qol.first @@ Test_Info.update m e) model events
+  module Test_App = App (Test_Info)
+
+  let play_events_app update events model =
+    List.fold_left (fun m e -> Qol.first @@ update m e) model events
   ;;
 
-  let print_render model =
-    Tty_testing.Test_Platform.render @@ Test_Info.view model;
+  let play_events = play_events_app Test_App.update
+
+  let print_render_app view model =
+    Tty_testing.Test_Platform.render @@ view model;
     List.iter print_endline (Tty_testing.Test_Platform.lines ())
   ;;
 
+  let print_render = print_render_app Test_App.view
+
   let%expect_test "Navigate between commits" =
-    let down_right = play_events [ Down; Right ] Test_Info.init in
+    let down_right = play_events [ Down; Right ] Test_App.init in
     print_render down_right;
     [%expect
       {|
-      pick: 1a 'A'    |
-      ^v pick: 2b 'B' |
-      pick: 3c 'C'    |
-      pick: 4d 'D'    |
+      pick: 1a 'A'
+      ^v pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
       |}];
     let up = play_events [ Up ] down_right in
     print_render up;
     [%expect
       {|
-      ^v pick: 2b 'B' |
-      pick: 1a 'A'    |
-      pick: 3c 'C'    |
-      pick: 4d 'D'    |
+      ^v pick: 2b 'B'
+      pick: 1a 'A'
+      pick: 3c 'C'
+      pick: 4d 'D'
       |}];
     let down_down_left = play_events [ Down; Down; Left ] up in
     print_render down_down_left;
     [%expect
       {|
-      pick: 1a 'A' |
-      pick: 3c 'C' |
-      pick: 2b 'B' |
-      pick: 4d 'D' |
+      pick: 1a 'A'
+      pick: 3c 'C'
+      pick: 2b 'B'
+      pick: 4d 'D'
       |}]
   ;;
 
   let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
 
   let%expect_test "Rename a commit" =
-    let right_right = play_events [ Right; Right ] Test_Info.init in
+    let right_right = play_events [ Right; Right ] Test_App.init in
     print_render right_right;
     [%expect
       {|
-      pick: 1a ''(renaming) |
-      pick: 2b 'B'          |
-      pick: 3c 'C'          |
-      pick: 4d 'D'          |
+      pick: 1a ''(renaming)
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
       |}];
     let renamed =
       play_events (chars "Awesome name!") right_right |> play_events [ Enter ]
@@ -362,10 +366,10 @@ module Tests = struct
     print_render renamed;
     [%expect
       {|
-      pick: 1a 'Awesome name!'(renamed) |
-      pick: 2b 'B'                      |
-      pick: 3c 'C'                      |
-      pick: 4d 'D'                      |
+      pick: 1a 'Awesome name!'(renamed)
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
       |}]
   ;;
 
@@ -384,6 +388,64 @@ module Tests = struct
       pick B RENAMED
       exec git commit --amend -m 'RENAMED'
       pick C ccc
+      |}]
+  ;;
+
+  module Test_Info_with_modified (M : sig
+      val modified : (string * string list) list
+    end) =
+  struct
+    let entries = test_entries
+
+    let modified_files sha1 =
+      List.find_map
+        (fun (ref, files) -> if String.equal sha1 ref then Some files else None)
+        M.modified
+      |> Option.value ~default:[]
+    ;;
+  end
+
+  let%expect_test "Display modified files along entries" =
+    let module Info : Rebase_info_external =
+      Test_Info_with_modified (struct
+        let modified =
+          [ "1a", [ "a.txt"; "a/" ]
+          ; "3c", [ "1.c"; "2.c"; "3.c"; "4.c"; "5.c"; "6.c"; "7.c" ]
+          ]
+        ;;
+      end)
+    in
+    let module A = App (Info) in
+    let print_render = print_render_app A.view
+    and play_events = play_events_app A.update in
+    print_render A.init;
+    [%expect
+      {|
+      pick: 1a 'A' | a.txt
+      pick: 2b 'B' | a/
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let move_down = play_events [ Down ] A.init in
+    print_render move_down;
+    [%expect
+      {|
+      pick: 1a 'A'
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let move_down_again = play_events [ Down ] move_down in
+    print_render move_down_again;
+    [%expect
+      {|
+      pick: 1a 'A' | 1.c
+      pick: 2b 'B' | 2.c
+      pick: 3c 'C' | 3.c
+      pick: 4d 'D' | 4.c
+                   | 5.c
+                   | 6.c
+                   | 7.c
       |}]
   ;;
 end
