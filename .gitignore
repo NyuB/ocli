@@ -1,3 +1,6 @@
 # dune specifics
 _build
 _opam
+
+# VS Code specifics
+.vscode
