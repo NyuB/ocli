@@ -10,7 +10,7 @@
  (public_name rebase_edit)
  (name rebase_edit)
  (modules rebase_edit)
- (libraries tea tty rebase))
+ (libraries qol_unix tea tty rebase))
 
 (executable
  (public_name rebase_pass)
