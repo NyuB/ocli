@@ -15,3 +15,8 @@
  (inline_tests)
  (preprocess
   (pps ppx_expect)))
+
+(tests
+ (names tty_test)
+ (modules tty_test)
+ (libraries alcotest tty))

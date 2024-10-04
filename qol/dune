@@ -6,3 +6,8 @@
  (name qol_unix)
  (modules qol_unix)
  (libraries unix))
+
+(tests
+ (names qol_test)
+ (modules qol_test)
+ (libraries alcotest qol))
