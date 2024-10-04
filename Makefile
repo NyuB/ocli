@@ -21,6 +21,10 @@ build:
 demo:
 	dune exec demo_tty
 
+doc:
+	dune build @doc
+	dune build @doc-private
+
 install-rebase: build
 	# Copy the executables into installation directory
 	cp _build/install/default/bin/rebase_edit $(INSTALL_ROOT)/rebase_edit
