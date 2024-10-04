@@ -1,3 +1,5 @@
+(** Custom git-rebase editor *)
+
 module Terminal_platform_with_exit
     (Terminal : Tty.Posix_terminal)
     (Target : sig
@@ -7,7 +9,7 @@ module Terminal_platform_with_exit
 
   type command = Rebase.rebase_app_command
 
-  let write_git_entries f content =
+  let write_git_entries (f : string) (content : Rebase.rebase_entry list) =
     let oc = open_out f in
     Fun.protect
       ~finally:(fun () -> close_out oc)
@@ -16,6 +18,7 @@ module Terminal_platform_with_exit
         |> List.iter (Qol.Out_channel.output_line oc))
   ;;
 
+  (** Handle application exit by writing the current application rebase entries to the target rebase file and exiting the program *)
   let handle_commands = function
     | Rebase.Exit_with entries :: _ ->
       write_git_entries Target.file entries;
@@ -46,6 +49,7 @@ struct
 
   let entries = Rebase.parse_rebase_file F.file
 
+  (** Give modified files for a given commit by actually calling git. Cached to avoid redundant program calls *)
   let modified_files sha1 =
     cached sha1
     @@ lazy
@@ -56,6 +60,13 @@ struct
 end
 
 let () =
+  (* The rebase file created by git and passed as first argument to the editor *)
+  let rebase_file = Sys.argv.(1) in
+  let module Rebase_file = struct
+    let file = rebase_file
+  end
+  in
+  let module Info = Rebase_info_of_file (Rebase_file) in
   let module Terminal = struct
     let terminal_in = Unix.stdin
     let terminal_out = Out_channel.stdout
@@ -63,18 +74,6 @@ let () =
     module Style = Tty.Default_style
   end
   in
-  let file = Sys.argv.(1) in
-  let module Info =
-    Rebase_info_of_file (struct
-      let file = file
-    end)
-  in
-  let module Terminal_platform =
-    Terminal_platform_with_exit
-      (Terminal)
-      (struct
-        let file = file
-      end)
-  in
+  let module Terminal_platform = Terminal_platform_with_exit (Terminal) (Rebase_file) in
   Tea.loop_app (module Rebase.App (Info)) (module Terminal_platform)
 ;;

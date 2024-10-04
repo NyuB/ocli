@@ -1,3 +1,4 @@
+(** [command "prog" [|"a"; "b"|]] executes 'prog a b' and returns its standard output *)
 let command program args =
   let out, process_in, err =
     Unix.open_process_args_full program (Array.concat [ [| program |]; args ]) [||]

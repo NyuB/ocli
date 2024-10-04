@@ -1,3 +1,5 @@
+(** Application logic of a custom rebase editor *)
+
 type rebase_command =
   | Pick
   | Edit
