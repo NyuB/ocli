@@ -1,2 +1,8 @@
 (library
- (name qol))
+ (name qol)
+ (modules qol))
+
+(library
+ (name qol_unix)
+ (modules qol_unix)
+ (libraries unix))
