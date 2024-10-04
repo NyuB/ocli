@@ -4,11 +4,6 @@
  (libraries qol tea unix))
 
 (library
- (name tea)
- (modules tea)
- (libraries qol))
-
-(library
  (name tty_testing)
  (modules tty_testing)
  (libraries qol tty tea)
