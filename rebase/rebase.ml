@@ -88,14 +88,15 @@ let parse_rebase_file f =
   Fun.protect ~finally:(fun () -> close_in ic) (fun () -> aux [] |> parse_entries)
 ;;
 
-module type Entries = sig
+module type Rebase_info_external = sig
   val entries : rebase_entry list
   val modified_files : string -> string list
 end
 
 type rebase_app_command = Exit_with of rebase_entry list
 
-module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command = struct
+module App (Info : Rebase_info_external) :
+  Tty.Ansi_App with type command = rebase_app_command = struct
   include Tty.Ansi_Tea_Base
 
   type command = rebase_app_command
@@ -111,7 +112,7 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
     ; mode : mode
     }
 
-  let init = { entries = Array.of_list E.entries; cursor = 0; mode = Navigate }
+  let init = { entries = Array.of_list Info.entries; cursor = 0; mode = Navigate }
 
   let string_of_renaming_entry { command; sha1; _ } rename =
     Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
@@ -155,7 +156,7 @@ module App (E : Entries) : Tty.Ansi_App with type command = rebase_app_command =
   ;;
 
   let right_panel_content model =
-    let files = E.modified_files (current_sha1 model)
+    let files = Info.modified_files (current_sha1 model)
     and col = right_panel_col_start model in
     List.mapi
       (fun i f -> Tty.{ row = i + 1; col = col + 3 }, Tty.Default_style.default_style, f)
@@ -299,61 +300,61 @@ module Tests = struct
     [ "pick 1a A"; "pick 2b B"; "pick 3c C"; "pick 4d D" ] |> parse_entries
   ;;
 
-  module Test_App = App (struct
+  module Test_Info = App (struct
       let entries = test_entries
       let modified_files _ = []
     end)
 
   let play_events events model =
-    List.fold_left (fun m e -> Qol.first @@ Test_App.update m e) model events
+    List.fold_left (fun m e -> Qol.first @@ Test_Info.update m e) model events
   ;;
 
   let print_render model =
-    Tty_testing.Test_Platform.render @@ Test_App.view model;
+    Tty_testing.Test_Platform.render @@ Test_Info.view model;
     List.iter print_endline (Tty_testing.Test_Platform.lines ())
   ;;
 
   let%expect_test "Navigate between commits" =
-    let down_right = play_events [ Down; Right ] Test_App.init in
+    let down_right = play_events [ Down; Right ] Test_Info.init in
     print_render down_right;
     [%expect
       {|
-      pick: 1a 'A'
-      ^v pick: 2b 'B'
-      pick: 3c 'C'
-      pick: 4d 'D'
+      pick: 1a 'A'    |
+      ^v pick: 2b 'B' |
+      pick: 3c 'C'    |
+      pick: 4d 'D'    |
       |}];
     let up = play_events [ Up ] down_right in
     print_render up;
     [%expect
       {|
-      ^v pick: 2b 'B'
-      pick: 1a 'A'
-      pick: 3c 'C'
-      pick: 4d 'D'
+      ^v pick: 2b 'B' |
+      pick: 1a 'A'    |
+      pick: 3c 'C'    |
+      pick: 4d 'D'    |
       |}];
     let down_down_left = play_events [ Down; Down; Left ] up in
     print_render down_down_left;
     [%expect
       {|
-      pick: 1a 'A'
-      pick: 3c 'C'
-      pick: 2b 'B'
-      pick: 4d 'D'
+      pick: 1a 'A' |
+      pick: 3c 'C' |
+      pick: 2b 'B' |
+      pick: 4d 'D' |
       |}]
   ;;
 
   let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
 
   let%expect_test "Rename a commit" =
-    let right_right = play_events [ Right; Right ] Test_App.init in
+    let right_right = play_events [ Right; Right ] Test_Info.init in
     print_render right_right;
     [%expect
       {|
-      pick: 1a ''(renaming)
-      pick: 2b 'B'
-      pick: 3c 'C'
-      pick: 4d 'D'
+      pick: 1a ''(renaming) |
+      pick: 2b 'B'          |
+      pick: 3c 'C'          |
+      pick: 4d 'D'          |
       |}];
     let renamed =
       play_events (chars "Awesome name!") right_right |> play_events [ Enter ]
@@ -361,10 +362,10 @@ module Tests = struct
     print_render renamed;
     [%expect
       {|
-      pick: 1a 'Awesome name!'(renamed)
-      pick: 2b 'B'
-      pick: 3c 'C'
-      pick: 4d 'D'
+      pick: 1a 'Awesome name!'(renamed) |
+      pick: 2b 'B'                      |
+      pick: 3c 'C'                      |
+      pick: 4d 'D'                      |
       |}]
   ;;
 
