@@ -17,3 +17,6 @@
  (name rebase_pass)
  (modules rebase_pass)
  (libraries))
+
+(cram
+ (deps %{bin:rebase_pass}))

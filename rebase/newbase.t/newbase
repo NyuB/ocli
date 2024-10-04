@@ -1,0 +1,13 @@
+#!/bin/bash
+
+CUSTOM_EDITOR=${CUSTOM_EDITOR:-rebase_edit}
+RESET=${RESET:-true}
+GIT_EDITOR="${CUSTOM_EDITOR}" git rebase -i $1
+# Unfortunately rebase_edit currently leaves the terminal display in an unstable state,
+# sometimes making the subsequent typings invisible
+# Reset terminal to avoid this while looking for a solution  
+if [ "$RESET" = "true" ]; then 
+    reset 
+fi;
+# Where are we now ...
+git status
