@@ -7,8 +7,8 @@ end = struct
 
   type command = Tea.no_command
 
-  let rows = 50
-  let cols = 100
+  let rows = 100
+  let cols = 300
   let current_rendering = Array.init rows (fun _ -> Array.make cols ' ')
 
   let clean () =

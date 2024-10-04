@@ -35,7 +35,30 @@ let () =
   in
   let file = Sys.argv.(1) in
   let module Entries = struct
+    module Cache = Hashtbl.Make (String)
+
+    type cache = string list Cache.t
+
+    let cache : cache = Cache.create 50
+
+    let cached sha1 lazy_files_result =
+      match Cache.find_opt cache sha1 with
+      | Some v -> v
+      | None ->
+        let v = Lazy.force lazy_files_result in
+        Cache.add cache sha1 v;
+        v
+    ;;
+
     let entries = Rebase.parse_rebase_file file
+
+    let modified_files sha1 =
+      cached sha1
+      @@ lazy
+           (Qol_unix.command
+              "git"
+              [| "diff-tree"; "--no-commit-id"; "--name-only"; "-r"; "--root"; sha1 |])
+    ;;
   end
   in
   let module Terminal_platform =
