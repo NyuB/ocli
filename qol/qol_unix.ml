@@ -1,6 +1,7 @@
 let command program args =
   let out, process_in, err =
-    Unix.open_process_args_full program (Array.concat [ [| program |]; args ]) [||]  in
+    Unix.open_process_args_full program (Array.concat [ [| program |]; args ]) [||]
+  in
   let rec aux acc =
     try
       let line = input_line out in
