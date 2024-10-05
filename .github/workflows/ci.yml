@@ -16,10 +16,6 @@ on:
         description: 'Release name'
         required: true
         default: 'snapshot'
-      text:
-        description: 'Release description'
-        required: true
-        default: 'Snapshot build of the main branch'
 
 jobs:
   build:
@@ -31,23 +27,24 @@ jobs:
         run: |
           sudo apt install -y opam
           opam init -y --shell-setup
+          opam switch create 5.2.0
           eval $(opam env)
-          opam switch create -y --with-test .
+          opam install -y dune alcotest ocamlformat ppx_expect sexplib
 
       - name: Enforce source code formatting
         run: |
-          eval $(opam env --set-switch)
+          eval $(opam env)
           make fmt-check
           
       - name: Tests
         run: |
-          eval $(opam env --set-switch)
+          eval $(opam env)
           make test
 
       - name: Build rebase_edit executable
         run: |
-          eval $(opam env --set-switch)
-          make install-rebase INSTALL_ROOT=.
+          eval $(opam env)
+          make install-newbase INSTALL_ROOT=.
 
       - name: Release
         # Only if manually triggered
@@ -57,7 +54,7 @@ jobs:
           name: ${{ github.event.inputs.name }}
           tag_name: ${{ github.event.inputs.name }}
           target_commitish: main
-          body: ${{ github.event.inputs.text }}
+          body_path: CHANGELOG.md
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             newbase

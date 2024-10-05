@@ -1,4 +1,4 @@
-## Current
+## 0.2.0
 ### Rebase
 - Allow to pass a number to newbase, this number will be interpreted as HEAD~number
 - Forbid fixuping the first rebase entry
