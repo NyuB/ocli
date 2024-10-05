@@ -2,6 +2,8 @@
   $ newbase_test () { CUSTOM_EDITOR=rebase_pass RESET=false ./newbase $1 2>/dev/null; }
   $ git init -b main
   Initialized empty Git repository in $TESTCASE_ROOT/.git/
+  $ git config user.email "you@test.com"
+  $ git config user.name "Testy the Tester"
   $ git add .
   $ git commit -m "Root commit" > /dev/null
   $ git commit --allow-empty -m "Commit 1" > /dev/null
