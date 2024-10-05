@@ -1,7 +1,9 @@
 (library
  (name rebase)
  (modules rebase)
- (libraries tea tty))
+ (libraries tea tty)
+ (preprocess
+  (pps ppx_cross_match)))
 
 (library
  (name rebase_test_inline)

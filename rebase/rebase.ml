@@ -337,23 +337,20 @@ module App (Info : Rebase_info_external) :
     | Navigate, Down ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
     | Navigate, Right -> { model with mode = Move }, []
-    | Navigate, Char 'd' | Navigate, Char 'D' | Move, Del ->
-      set_rebase_command model Drop, []
-    | Navigate, Char 'f' | Navigate, Char 'F' -> set_fixup model, []
-    | Navigate, Char 'p' | Navigate, Char 'P' -> set_rebase_command model Pick, []
-    | Navigate, Char 'x' | Navigate, Char 'X' -> switch_explode model, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
     | Move, Left -> { model with mode = Navigate }, []
     | Move, Right -> { model with mode = Rename "" }, []
-    | Move, Char 'd' | Move, Char 'D' | Navigate, Del -> set_rebase_command model Drop, []
-    | Move, Char 'f' | Move, Char 'F' -> set_fixup model, []
-    | Move, Char 'p' | Move, Char 'P' -> set_rebase_command model Pick, []
-    | Move, Char 'x' | Move, Char 'X' -> switch_explode model, []
     | Rename name, Enter -> set_name model name, []
     | Rename _, Left -> { model with mode = Navigate }, []
     | Rename s, Char c -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
     | Rename s, Del -> { model with mode = Rename (del_rename s) }, []
+    | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
+      set_rebase_command model Drop, []
+    | [%cross_match (Navigate, Move), (Char 'f', Char 'F')] -> set_fixup model, []
+    | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
+      set_rebase_command model Pick, []
+    | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
     | _, Esc ->
       ( model
       , [ Exit_with

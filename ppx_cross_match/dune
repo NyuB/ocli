@@ -1,0 +1,16 @@
+(library
+ (name ppx_cross_match)
+ (modules ppx_cross_match)
+ (kind ppx_rewriter)
+ (libraries cross ppxlib))
+
+(tests
+ (names cross_test)
+ (modules cross_test)
+ (libraries alcotest cross)
+ (preprocess
+  (pps ppx_cross_match)))
+
+(library
+ (name cross)
+ (modules cross))
