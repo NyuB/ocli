@@ -1,3 +1,7 @@
+## Current
+### Rebase
+- Reduce rebase_edit binary size by ~4MB by extracting inline tests to a separate module
+
 ## 0.2.0
 ### Rebase
 - Allow to pass a number to newbase, this number will be interpreted as HEAD~number

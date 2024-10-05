@@ -1,7 +1,12 @@
 (library
  (name rebase)
  (modules rebase)
- (libraries tea tty tty_testing)
+ (libraries tea tty))
+
+(library
+ (name rebase_test_inline)
+ (modules rebase_test_inline)
+ (libraries rebase tea tty tty_testing)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))
