@@ -1,9 +1,16 @@
 # OCaml CLI Mini-framework
 
+
+
 ## Demo Apps
 + [demo_tty](demo/demo_main.ml), a sample of all implemented ansi features and a quick way to visually check the behaviour of the framework on a given terminal.
+![tty demo gif](docs/tty.gif)
+
 + [demo_boiling](demo/demo_boiling.ml), ongoing sandbox on ascii animation
+![boiling demo gif](docs/boiling.gif)
+
 + [rebase](rebase/rebase_edit.ml), an interactive git rebase editor
+![rebase demo gif](docs/newbase.gif)
 
 ## Core libraries
 + [tea](tea/tea.mli), Elm-inspired application structure
