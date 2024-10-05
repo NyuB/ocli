@@ -112,9 +112,16 @@ module App (Info : Rebase_info_external) :
     { entries : rebase_entry array
     ; cursor : int
     ; mode : mode
+    ; dimensions : Tty.position
     }
 
-  let init = { entries = Array.of_list Info.entries; cursor = 0; mode = Navigate }
+  let init =
+    { entries = Array.of_list Info.entries
+    ; cursor = 0
+    ; mode = Navigate
+    ; dimensions = { row = 25; col = 80 }
+    }
+  ;;
 
   let string_of_renaming_entry { command; sha1; _ } rename =
     Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
@@ -141,40 +148,52 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let max_or_zero ~by l = Array.fold_left (fun acc item -> max acc (by item)) 0 l
-
-  let right_panel_col_start ({ entries; _ } as model) =
-    Array.mapi (fun i e -> highlight_entry i e model) entries
-    |> max_or_zero ~by:(fun (_, s) -> String.length s + 1)
-  ;;
-
   let current_entry model = model.entries.(model.cursor)
   let current_sha1 model = (current_entry model).sha1
 
-  let right_panel_view model =
-    let files = Info.modified_files (current_sha1 model)
-    and col = right_panel_col_start model in
-    let border =
-      List.init (List.length files) (fun i ->
-        Tty.{ row = i + 1; col = col + 1 }, Tty.Default_style.default_style, "|")
-    and content =
-      List.mapi
-        (fun i f ->
-          Tty.{ row = i + 1; col = col + 3 }, Tty.Default_style.default_style, f)
-        files
-    in
-    border @ content
+  let max_entry_full_length ({ entries; _ } as model) =
+    Array.mapi (fun i e -> highlight_entry i e model) entries
+    |> max_or_zero ~by:(fun (_, s) -> String.length s)
   ;;
 
-  let view ({ entries; _ } as model) : Tty.ansi_view_item list =
-    let entries =
-      Array.mapi
-        (fun i e ->
-          let style, repr = highlight_entry i e model in
-          Tty.{ row = i + 1; col = 1 }, style, repr)
-        entries
-      |> Array.to_list
-    and right_panel = right_panel_view model in
-    entries @ right_panel
+  let panels_widths model =
+    (* 2/3 for left panel and 1/3 for right panel *)
+    let left = min (model.dimensions.col * 2 / 3) (max_entry_full_length model) in
+    let right = model.dimensions.col - left in
+    left, right
+  ;;
+
+  let crop_to_size max_size s =
+    if String.length s <= max_size
+    then s
+    else if max_size >= 3
+    then String.sub s 0 (max_size - 3) ^ "..."
+    else String.sub s 0 max_size
+  ;;
+
+  let right_panel_view model =
+    let left_width, max_width = panels_widths model in
+    let files = Info.modified_files (current_sha1 model) in
+    List.mapi
+      (fun i f ->
+        ( Tty.{ row = i + 1; col = left_width + 1 }
+        , Tty.Default_style.default_style
+        , crop_to_size max_width (" | " ^ f) ))
+      files
+  ;;
+
+  let left_panel_view model =
+    let max_width, _ = panels_widths model in
+    Array.mapi
+      (fun i e ->
+        let style, repr = highlight_entry i e model in
+        Tty.{ row = i + 1; col = 1 }, style, crop_to_size max_width repr)
+      model.entries
+    |> Array.to_list
+  ;;
+
+  let view model : Tty.ansi_view_item list =
+    left_panel_view model @ right_panel_view model
   ;;
 
   let swap arr a b =
@@ -240,6 +259,7 @@ module App (Info : Rebase_info_external) :
     | Char 'f', _ | Char 'F', _ -> set_rebase_command model Fixup, []
     | Char 'p', _ | Char 'P', _ -> set_rebase_command model Pick, []
     | Char 'd', _ | Char 'D', _ | Del, _ -> set_rebase_command model Drop, []
+    | Size dimensions, _ -> { model with dimensions }, []
     | _ -> model, []
   ;;
 end
@@ -451,30 +471,54 @@ module Tests = struct
       |}]
   ;;
 
-  let%expect_test "Crop commit messages" =
+  let%expect_test "Crop commit messages and file names" =
     let module I = struct
       include Test_Info
 
       let entries =
         test_entries
-        |> List.map (fun e -> { e with message = e.message ^ " 123456789123456789" })
+        |> List.map (fun e ->
+          { e with message = e.message ^ " 123456789123456789123456789" })
+      ;;
+
+      let modified_files sha1 =
+        List.find_map
+          (fun (s, fs) -> if String.equal sha1 s then Some fs else None)
+          [ "2b", [ "com/compagny/root/package/AbstractEntityBuilderFactoryVisitor.java" ]
+          ; "3c", [ "ok/ok.ml" ]
+          ]
+        |> Option.value ~default:[]
       ;;
     end
     in
     let module A = App (I) in
-    let print_render = print_render_app A.view in
-    Tty_testing.Test_Platform.set_dimensions { col = 15; row = 999 };
-    print_render A.init;
+    let print_render = print_render_app A.view
+    and play_events = play_events_app A.update in
+    let size = Tty.{ col = 50; row = 999 } in
+    Tty_testing.Test_Platform.set_dimensions size;
+    print_render (play_events [ Size size ] A.init);
     [%expect
       {|
-      [Rendering error] Trying to write string 'pick: 4d 'D 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
-      [Rendering error] Trying to write string 'pick: 3c 'C 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
-      [Rendering error] Trying to write string 'pick: 2b 'B 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
-      [Rendering error] Trying to write string 'pick: 1a 'A 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
-      pick: 1a 'A 123
-      pick: 2b 'B 123
-      pick: 3c 'C 123
-      pick: 4d 'D 123
+      pick: 1a 'A 123456789123456789...
+      pick: 2b 'B 123456789123456789...
+      pick: 3c 'C 123456789123456789...
+      pick: 4d 'D 123456789123456789...
+      |}];
+    print_render (play_events [ Size size; Down ] A.init);
+    [%expect
+      {|
+      pick: 1a 'A 123456789123456789... | com/compagn...
+      pick: 2b 'B 123456789123456789...
+      pick: 3c 'C 123456789123456789...
+      pick: 4d 'D 123456789123456789...
+      |}];
+    print_render (play_events [ Size size; Down; Down ] A.init);
+    [%expect
+      {|
+      pick: 1a 'A 123456789123456789... | ok/ok.ml
+      pick: 2b 'B 123456789123456789...
+      pick: 3c 'C 123456789123456789...
+      pick: 4d 'D 123456789123456789...
       |}]
   ;;
 end

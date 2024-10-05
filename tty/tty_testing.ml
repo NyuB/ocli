@@ -53,7 +53,7 @@ end = struct
              (pos.col + len - 1)
              !cols
            :: !error_records;
-      for j = 0 to min (len - 1) (!cols - 1) do
+      for j = 0 to min (len - 1) (!cols - pos.col) do
         !current_rendering.(pos.row - 1).(j + pos.col - 1) <- String.get s j
       done)
   ;;
