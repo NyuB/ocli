@@ -1,30 +1,61 @@
 module Test_Platform : sig
   include Tty.Ansi_Platform with type command = Tea.no_command
 
+  val set_dimensions : Tty.position -> unit
   val lines : unit -> string list
 end = struct
   include Tty.Ansi_Tea_Base
 
   type command = Tea.no_command
 
-  let rows = 100
-  let cols = 300
-  let current_rendering = Array.init rows (fun _ -> Array.make cols ' ')
+  let rows = ref 999
+  let cols = ref 999
+  let current_rendering = ref (Array.init !rows (fun _ -> Array.make !cols ' '))
+  let error_records : string list ref = ref []
 
-  let clean () =
-    for i = 0 to rows - 1 do
-      for j = 0 to cols - 1 do
-        current_rendering.(i).(j) <- ' '
-      done
-    done
+  let set_dimensions (size : Tty.position) =
+    rows := size.row;
+    cols := size.col;
+    let rendering =
+      Array.init !rows (fun r -> Array.init !cols (fun c -> !current_rendering.(r).(c)))
+    in
+    current_rendering := rendering
   ;;
 
-  let poll_events () = [ Tty.Size { row = rows; col = 999 } ]
+  let clean () =
+    for i = 0 to !rows - 1 do
+      for j = 0 to !cols - 1 do
+        !current_rendering.(i).(j) <- ' '
+      done
+    done;
+    error_records := []
+  ;;
+
+  let poll_events () = [ Tty.Size { row = !rows; col = !cols } ]
 
   let render_string_at (pos : Tty.position) s =
-    for j = 0 to String.length s - 1 do
-      current_rendering.(pos.row - 1).(j + pos.col - 1) <- String.get s j
-    done
+    if pos.row > !rows
+    then
+      error_records
+      := Printf.sprintf "Trying to write string '%s' at OOB row %d" s pos.row
+         :: !error_records
+    else (
+      let len = String.length s in
+      if len + pos.col > !cols + 1
+      then
+        error_records
+        := Printf.sprintf
+             "Trying to write string '%s' of length %d from column %d (which would \
+              expand to column %d) but terminal is only %d columns large"
+             s
+             len
+             pos.col
+             (pos.col + len - 1)
+             !cols
+           :: !error_records;
+      for j = 0 to min (len - 1) (!cols - 1) do
+        !current_rendering.(pos.row - 1).(j + pos.col - 1) <- String.get s j
+      done)
   ;;
 
   let setup () = ()
@@ -35,8 +66,9 @@ end = struct
   ;;
 
   let lines () =
-    Array.to_list current_rendering
-    |> List.map (fun c_arr -> Array.to_seq c_arr |> String.of_seq)
+    List.map (fun e -> "[Rendering error] " ^ e) !error_records
+    @ (Array.to_list !current_rendering
+       |> List.map (fun c_arr -> Array.to_seq c_arr |> String.of_seq))
   ;;
 
   let handle_commands _ = ()

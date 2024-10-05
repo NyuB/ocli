@@ -450,4 +450,31 @@ module Tests = struct
                    | 7.c
       |}]
   ;;
+
+  let%expect_test "Crop commit messages" =
+    let module I = struct
+      include Test_Info
+
+      let entries =
+        test_entries
+        |> List.map (fun e -> { e with message = e.message ^ " 123456789123456789" })
+      ;;
+    end
+    in
+    let module A = App (I) in
+    let print_render = print_render_app A.view in
+    Tty_testing.Test_Platform.set_dimensions { col = 15; row = 999 };
+    print_render A.init;
+    [%expect
+      {|
+      [Rendering error] Trying to write string 'pick: 4d 'D 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
+      [Rendering error] Trying to write string 'pick: 3c 'C 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
+      [Rendering error] Trying to write string 'pick: 2b 'B 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
+      [Rendering error] Trying to write string 'pick: 1a 'A 123456789123456789'' of length 31 from column 1 (which would expand to column 31) but terminal is only 15 columns large
+      pick: 1a 'A 123
+      pick: 2b 'B 123
+      pick: 3c 'C 123
+      pick: 4d 'D 123
+      |}]
+  ;;
 end
