@@ -213,14 +213,21 @@ module App (Info : Rebase_info_external) :
     }
   ;;
 
+  let entry_at_cursor model cursor = model.entries.(cursor)
+
+  let entry_at_cursor_is_fixup model cursor =
+    (entry_at_cursor model cursor).command = Fixup
+  ;;
+
   let move_up ({ cursor; _ } as model) =
-    if cursor <= 0
+    if cursor <= 0 || (cursor = 1 && entry_at_cursor_is_fixup model cursor)
     then model
     else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor - 1)
   ;;
 
   let move_down ({ cursor; entries; _ } as model) =
     if cursor >= Array.length entries - 1
+       || (cursor = 0 && entry_at_cursor_is_fixup model (cursor + 1))
     then model
     else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor + 1)
   ;;
@@ -231,6 +238,8 @@ module App (Info : Rebase_info_external) :
     copy.(cursor) <- { current with command = cmd };
     { model with entries = copy }
   ;;
+
+  let set_fixup model = if model.cursor = 0 then model else set_rebase_command model Fixup
 
   let set_name ({ cursor; entries; _ } as model) name =
     let current = entries.(cursor) in
@@ -258,7 +267,7 @@ module App (Info : Rebase_info_external) :
     | Right, Move -> { model with mode = Rename "" }, []
     | Char c, Rename s -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
     | Del, Rename s -> { model with mode = Rename (del_rename s) }, []
-    | Char 'f', _ | Char 'F', _ -> set_rebase_command model Fixup, []
+    | Char 'f', _ | Char 'F', _ -> set_fixup model, []
     | Char 'p', _ | Char 'P', _ -> set_rebase_command model Pick, []
     | Char 'd', _ | Char 'D', _ | Del, _ -> set_rebase_command model Drop, []
     | Size dimensions, _ -> { model with dimensions }, []
@@ -415,10 +424,11 @@ module Tests = struct
       |}]
   ;;
 
-  let%expect_test "Fixup entries" =
+  let%expect_test "Fixup" =
     let fixup_second_commit = play_events [ Down; Char 'F' ] Test_App.init in
     print_render fixup_second_commit;
-    [%expect {|
+    [%expect
+      {|
       pick: 1a 'A'
          fixup: 2b 'B'
       pick: 3c 'C'
@@ -426,9 +436,44 @@ module Tests = struct
       |}];
     let fixup_second_commit = play_events [ Down; Char 'F'; Right ] Test_App.init in
     print_render fixup_second_commit;
-    [%expect {|
+    [%expect
+      {|
       pick: 1a 'A'
       ^v fixup: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}]
+  ;;
+
+  let%expect_test "Cannot fixup root entry" =
+    let try_to_fixup_root = play_events [ Char 'F' ] Test_App.init in
+    print_render try_to_fixup_root;
+    [%expect
+      {|
+      pick: 1a 'A'
+      pick: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let try_to_move_fixup_to_root =
+      play_events [ Down; Char 'F'; Right; Up ] Test_App.init
+    in
+    print_render try_to_move_fixup_to_root;
+    [%expect
+      {|
+      pick: 1a 'A'
+      ^v fixup: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let try_to_move_root_after_fixup =
+      play_events [ Down; Char 'F'; Up; Right; Down ] Test_App.init
+    in
+    print_render try_to_move_root_after_fixup;
+    [%expect
+      {|
+      ^v pick: 1a 'A'
+      fixup: 2b 'B'
       pick: 3c 'C'
       pick: 4d 'D'
       |}]
