@@ -282,24 +282,28 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let update model (event : Tty.ansi_event) =
-    match event, model.mode with
-    | Up, Navigate -> { model with cursor = max 0 (model.cursor - 1) }, []
-    | Down, Navigate ->
+    match model.mode, event with
+    | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
+    | Navigate, Down ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
-    | Up, Move -> move_up model, []
-    | Down, Move -> move_down model, []
-    | Left, Move -> { model with mode = Navigate }, []
-    | Right, Navigate -> { model with mode = Move }, []
-    | Esc, _ -> model, [ Exit_with (Array.to_list model.entries) ]
-    | Enter, Rename name -> set_name model name, []
-    | Left, Rename _ -> { model with mode = Navigate }, []
-    | Right, Move -> { model with mode = Rename "" }, []
-    | Char c, Rename s -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
-    | Del, Rename s -> { model with mode = Rename (del_rename s) }, []
-    | Char 'f', _ | Char 'F', _ -> set_fixup model, []
-    | Char 'p', _ | Char 'P', _ -> set_rebase_command model Pick, []
-    | Char 'd', _ | Char 'D', _ | Del, _ -> set_rebase_command model Drop, []
-    | Size dimensions, _ -> { model with dimensions }, []
+    | Navigate, Right -> { model with mode = Move }, []
+    | Navigate, Char 'd' | Navigate, Char 'D' | Move, Del ->
+      set_rebase_command model Drop, []
+    | Navigate, Char 'f' | Navigate, Char 'F' -> set_fixup model, []
+    | Navigate, Char 'p' | Navigate, Char 'P' -> set_rebase_command model Pick, []
+    | Move, Up -> move_up model, []
+    | Move, Down -> move_down model, []
+    | Move, Left -> { model with mode = Navigate }, []
+    | Move, Right -> { model with mode = Rename "" }, []
+    | Move, Char 'd' | Move, Char 'D' | Navigate, Del -> set_rebase_command model Drop, []
+    | Move, Char 'f' | Move, Char 'F' -> set_fixup model, []
+    | Move, Char 'p' | Move, Char 'P' -> set_rebase_command model Pick, []
+    | Rename name, Enter -> set_name model name, []
+    | Rename _, Left -> { model with mode = Navigate }, []
+    | Rename s, Char c -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
+    | Rename s, Del -> { model with mode = Rename (del_rename s) }, []
+    | _, Esc -> model, [ Exit_with (Array.to_list model.entries) ]
+    | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
   ;;
 end
