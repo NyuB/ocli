@@ -12,6 +12,12 @@
  (modules rebase_edit)
  (libraries qol_unix tea tty rebase))
 
+(tests
+ (names rebase_test)
+ (modules rebase_test)
+ (libraries rebase alcotest)
+ (deps rebase_file_sample.txt))
+
 (executable
  (public_name rebase_pass)
  (name rebase_pass)
