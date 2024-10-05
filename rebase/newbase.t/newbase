@@ -2,7 +2,18 @@
 
 CUSTOM_EDITOR=${CUSTOM_EDITOR:-rebase_edit}
 RESET=${RESET:-true}
-GIT_EDITOR="${CUSTOM_EDITOR}" git rebase -i $1
+
+# If the first argument is a number, interpret it as an offset from the current HEAD
+ONLY_DIGITS="^[0-9]+$"
+if [[ "$1" =~ $ONLY_DIGITS ]]; then
+    REF="HEAD~$1"
+else
+    REF=$1
+fi;
+
+#
+GIT_EDITOR="${CUSTOM_EDITOR}" git rebase -i $REF
+
 # Unfortunately rebase_edit currently leaves the terminal display in an unstable state,
 # sometimes making the subsequent typings invisible
 # Reset terminal to avoid this while looking for a solution  
