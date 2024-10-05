@@ -138,7 +138,9 @@ module App (Info : Rebase_info_external) :
     in
     let repr =
       match model.mode with
-      | Navigate -> string_of_rebase_entry e
+      | Navigate ->
+        let prefix = if e.command = Fixup then "   " else "" in
+        prefix ^ string_of_rebase_entry e
       | Move when model.cursor <> i -> string_of_rebase_entry e
       | Rename _ when model.cursor <> i -> string_of_rebase_entry e
       | Move -> "^v " ^ string_of_rebase_entry e
@@ -410,6 +412,25 @@ module Tests = struct
       pick B RENAMED
       exec git commit --amend -m 'RENAMED'
       pick C ccc
+      |}]
+  ;;
+
+  let%expect_test "Fixup entries" =
+    let fixup_second_commit = play_events [ Down; Char 'F' ] Test_App.init in
+    print_render fixup_second_commit;
+    [%expect {|
+      pick: 1a 'A'
+         fixup: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
+      |}];
+    let fixup_second_commit = play_events [ Down; Char 'F'; Right ] Test_App.init in
+    print_render fixup_second_commit;
+    [%expect {|
+      pick: 1a 'A'
+      ^v fixup: 2b 'B'
+      pick: 3c 'C'
+      pick: 4d 'D'
       |}]
   ;;
 
