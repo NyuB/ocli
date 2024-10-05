@@ -165,6 +165,17 @@ module App (Info : Rebase_info_external) :
     left, right
   ;;
 
+  let entry_count model = Array.length model.entries
+
+  let start_dest model =
+    let before = model.dimensions.row / 2 in
+    let start = max 0 (model.cursor - before) in
+    let dest = min (entry_count model - 1) (start + model.dimensions.row - 1) in
+    start, dest
+  ;;
+
+  let slice start dest arr = Array.init (dest - start + 1) (fun i -> arr.(i + start))
+
   let crop_to_size max_size s =
     if String.length s <= max_size
     then s
@@ -184,13 +195,22 @@ module App (Info : Rebase_info_external) :
       files
   ;;
 
+  let mapped_i_inplace f arr =
+    Array.mapi_inplace f arr;
+    arr
+  ;;
+
   let left_panel_view model =
-    let max_width, _ = panels_widths model in
+    let max_width, _ = panels_widths model
+    and start, dest = start_dest model in
     Array.mapi
       (fun i e ->
         let style, repr = highlight_entry i e model in
         Tty.{ row = i + 1; col = 1 }, style, crop_to_size max_width repr)
       model.entries
+    |> slice start dest
+    |> mapped_i_inplace (fun i (pos, style, repr) ->
+      Tty.{ pos with row = i + 1 }, style, repr)
     |> Array.to_list
   ;;
 
@@ -585,6 +605,72 @@ module Tests = struct
       pick: 2b 'B 123456789123456789...
       pick: 3c 'C 123456789123456789...
       pick: 4d 'D 123456789123456789...
+      |}]
+  ;;
+
+  let%expect_test "Slide entry list to fit terminal rows" =
+    let module I = struct
+      include Test_Info
+
+      let entries =
+        List.init 2 (fun i ->
+          List.map
+            (fun e -> { e with message = Printf.sprintf "(%d)%s" i e.message })
+            test_entries)
+        |> List.concat
+      ;;
+    end
+    in
+    let module A = App (I) in
+    let size = Tty.{ row = 5; col = 80 } in
+    Tty_testing.Test_Platform.set_dimensions size;
+    let print_render = print_render_app A.view
+    and play_events = play_events_app A.update in
+    let resized = play_events [ Size size ] A.init in
+    print_render resized;
+    [%expect
+      {|
+      pick: 1a '(0)A'
+      pick: 2b '(0)B'
+      pick: 3c '(0)C'
+      pick: 4d '(0)D'
+      pick: 1a '(1)A'
+      |}];
+    (*End with a Right to make the current selected entry clear *)
+    print_render (play_events [ Down; Right ] resized);
+    [%expect
+      {|
+      pick: 1a '(0)A'
+      ^v pick: 2b '(0)B'
+      pick: 3c '(0)C'
+      pick: 4d '(0)D'
+      pick: 1a '(1)A'
+      |}];
+    print_render (play_events [ Down; Down; Right ] resized);
+    [%expect
+      {|
+      pick: 1a '(0)A'
+      pick: 2b '(0)B'
+      ^v pick: 3c '(0)C'
+      pick: 4d '(0)D'
+      pick: 1a '(1)A'
+      |}];
+    print_render (play_events [ Down; Down; Down; Right ] resized);
+    [%expect
+      {|
+      pick: 2b '(0)B'
+      pick: 3c '(0)C'
+      ^v pick: 4d '(0)D'
+      pick: 1a '(1)A'
+      pick: 2b '(1)B'
+      |}];
+    print_render (play_events [ Down; Down; Down; Down; Down; Down; Right ] resized);
+    [%expect
+      {|
+      pick: 1a '(1)A'
+      pick: 2b '(1)B'
+      ^v pick: 3c '(1)C'
+      pick: 4d '(1)D'
       |}]
   ;;
 end

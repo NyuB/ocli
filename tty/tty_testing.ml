@@ -14,10 +14,14 @@ end = struct
   let error_records : string list ref = ref []
 
   let set_dimensions (size : Tty.position) =
+    let rows_current = !rows
+    and cols_current = !cols in
     rows := size.row;
     cols := size.col;
     let rendering =
-      Array.init !rows (fun r -> Array.init !cols (fun c -> !current_rendering.(r).(c)))
+      Array.init !rows (fun r ->
+        Array.init !cols (fun c ->
+          if r < rows_current && c < cols_current then !current_rendering.(r).(c) else ' '))
     in
     current_rendering := rendering
   ;;
