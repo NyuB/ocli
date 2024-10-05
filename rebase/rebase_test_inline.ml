@@ -124,7 +124,7 @@ let%expect_test "Cannot fixup root entry" =
   [%expect
     {|
     ^v pick: 1a 'A'
-    fixup: 2b 'B'
+       fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}]
