@@ -25,7 +25,7 @@ doc:
 	dune build @doc
 	dune build @doc-private
 
-install-rebase: build
+install-newbase: build
 	# Copy the executables into installation directory
 	cp _build/install/default/bin/rebase_edit $(INSTALL_ROOT)/rebase_edit
 	cp rebase/newbase.t/newbase $(INSTALL_ROOT)/newbase

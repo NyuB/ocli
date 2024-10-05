@@ -1,16 +1,28 @@
 # OCaml CLI Mini-framework
 
-
-
-## Demo Apps
+## Apps
+### Demos
 + [demo_tty](demo/demo_main.ml), a sample of all implemented ansi features and a quick way to visually check the behaviour of the framework on a given terminal.
 ![tty demo gif](docs/tty.gif)
 
 + [demo_boiling](demo/demo_boiling.ml), ongoing sandbox on ascii animation
 ![boiling demo gif](docs/boiling.gif)
 
-+ [rebase](rebase/rebase_edit.ml), an interactive git rebase editor
+### Newbase
++ [rebase_edit](rebase/rebase_edit.ml), an interactive git rebase editor, and it's associated [newbase](rebase/newbase.t/newbase) script, intended as a drop-in replacement for `git rebase -i`
 ![rebase demo gif](docs/newbase.gif)
+
+To get `rebase_edit` and `newbase`, you can [install them from source](#install-rebase-from-source) or get them from the github release:
+
+```console
+$ wget https://github.com/NyuB/ocli/releases/latest/download/newbase
+$ wget https://github.com/NyuB/ocli/releases/latest/download/rebase_edit
+$ chmod +x newbase rebase_edit
+$ # Supposing ~/bin is in your PATH, replace with the desired installation root
+$ mv newbase ~/bin/ 
+$ mv rebase_edit ~/bin/
+```
+
 
 ## Core libraries
 + [tea](tea/tea.mli), Elm-inspired application structure
@@ -53,18 +65,18 @@ Update acceptance tests with the current outputs:
 make test-promote
 ```
 
-### Install rebase from source
+### Install newbase from source
 
 [rebase](rebase) provides two binaries:
 - [rebase_edit](rebase/rebase_edit.ml) is the interactive rebase editor, meant to be called by git with the rebase file.
 - [newbase](rebase/newbase.t/newbase) is a bash wrapper around `git rebase`. Its main purpose is to point git to rebase_edit as rebase editor along few other convenience features.
 
 ```
-make install-rebase
+make install-newbase
 ```
 
 Installation root can be chosen with the INSTALL_ROOT variable (defaults to `$HOME/bin`). `rebase_edit` and `newbase` will be placed at `${INSTALL_ROOT}/rebase_edit` and `${INSTALL_ROOT}/newbase`
 
 ```
-make install-rebase INSTALL_ROOT=/somewhere/in/your/path
+make install-newbase INSTALL_ROOT=/somewhere/in/your/path
 ```
