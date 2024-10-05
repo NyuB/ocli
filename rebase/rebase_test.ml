@@ -1,17 +1,22 @@
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 
+let string_of_custom_command = function
+  | Rebase.Rename new_name -> Printf.sprintf "Rename %s" new_name
+  | Nothing -> "Nothing"
+;;
+
 let rebase_entry_testable : Rebase.rebase_entry Alcotest.testable =
   Alcotest.testable
-    (fun fmt Rebase.{ command; message; sha1; renamed } ->
+    (fun fmt Rebase.{ command; message; sha1; custom } ->
       Format.pp_print_string
         fmt
         (Printf.sprintf
-           "{ command = %s; message = \"%s\";  sha1 = \"%s\"; renamed = %s }"
+           "{ command = %s; message = \"%s\";  sha1 = \"%s\"; custom = %s }"
            (Rebase.string_of_rebase_command command |> String.capitalize_ascii)
            message
            sha1
-           (string_of_bool renamed)))
+           (string_of_custom_command custom)))
     ( = )
 ;;
 
@@ -27,10 +32,16 @@ let test_renamed_entries =
   ( "Renamed entries are translated to execs"
   , fun () ->
       let entry =
-        [ Rebase.{ command = Pick; sha1 = "sha1"; message = "message"; renamed = true } ]
+        [ Rebase.
+            { command = Pick
+            ; sha1 = "sha1"
+            ; message = "message"
+            ; custom = Rename "rename"
+            }
+        ]
       in
       check_string_list
-        [ "pick sha1 message"; "exec git commit --amend -m 'message'" ]
+        [ "pick sha1 message"; "exec git commit --amend -m 'rename'" ]
         (Rebase.git_todo_of_rebase_entries entry) )
 ;;
 
@@ -42,19 +53,19 @@ let test_parse_git_entry_file =
         [ { command = Pick
           ; message = "Add default style to Tty module"
           ; sha1 = "8e46867"
-          ; renamed = false
+          ; custom = Nothing
           }
         ; { command = Pick
           ; message = "Make test output more readable"
           ; sha1 = "ee88f85"
-          ; renamed = false
+          ; custom = Nothing
           }
         ; { command = Pick
           ; message = "Move setup logic to Platform modules"
           ; sha1 = "e24e6e4"
-          ; renamed = false
+          ; custom = Nothing
           }
-        ; { command = Pick; message = "wip"; sha1 = "8a6ece0"; renamed = false }
+        ; { command = Pick; message = "wip"; sha1 = "8a6ece0"; custom = Nothing }
         ]
         entries )
 ;;

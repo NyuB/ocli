@@ -78,9 +78,9 @@ let%expect_test "Rename a commit" =
 
 let%expect_test "Renaming a commit adds an exec entry" =
   let entries =
-    [ { command = Pick; sha1 = "A"; message = "aaa"; renamed = false }
-    ; { command = Pick; sha1 = "B"; message = "RENAMED"; renamed = true }
-    ; { command = Pick; sha1 = "C"; message = "ccc"; renamed = false }
+    [ { command = Pick; sha1 = "A"; message = "aaa"; custom = Nothing }
+    ; { command = Pick; sha1 = "B"; message = "bbb"; custom = Rename "RENAMED" }
+    ; { command = Pick; sha1 = "C"; message = "ccc"; custom = Nothing }
     ]
   in
   let to_git = git_todo_of_rebase_entries entries in
@@ -88,7 +88,7 @@ let%expect_test "Renaming a commit adds an exec entry" =
   [%expect
     {|
     pick A aaa
-    pick B RENAMED
+    pick B bbb
     exec git commit --amend -m 'RENAMED'
     pick C ccc
     |}]

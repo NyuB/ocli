@@ -29,26 +29,45 @@ let string_of_rebase_command = function
   | Update git_ref -> Printf.sprintf "update <%s>" git_ref
 ;;
 
+type custom_command =
+  | Rename of string
+  | Nothing
+
 type rebase_entry =
   { command : rebase_command
   ; sha1 : string
   ; message : string
-  ; renamed : bool
+  ; custom : custom_command
   }
 
-let string_of_rebase_entry { command; sha1; message; renamed } =
+let message_of_rebase_entry entry =
+  match entry.custom with
+  | Rename n -> n
+  | Nothing -> entry.message
+;;
+
+let custom_info entry =
+  match entry.custom with
+  | Rename _ -> "(renamed)"
+  | _ -> ""
+;;
+
+let string_of_rebase_entry ({ command; sha1; _ } as entry) =
   Printf.sprintf
     "%s: %s '%s'%s"
     (string_of_rebase_command command)
     sha1
-    message
-    (if renamed then "(renamed)" else "")
+    (message_of_rebase_entry entry)
+    (custom_info entry)
 ;;
 
-let git_todo_of_rebase_entry { command; sha1; message; renamed } : string list =
-  let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message
-  and exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" message in
-  if renamed then [ base; exec_rename ] else [ base ]
+let git_todo_of_rebase_entry { command; sha1; message; custom } : string list =
+  let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message in
+  match custom with
+  | Rename new_name ->
+    let exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" new_name in
+    [ base; exec_rename ]
+  | Nothing -> [ base ]
 ;;
 
 let git_todo_of_rebase_entries (entries : rebase_entry list) : string list =
@@ -71,7 +90,7 @@ let parse_entry (line : string) : rebase_entry option =
       { command = Pick
       ; sha1 = List.nth parts 1
       ; message = String.concat " " (sublist 2 parts)
-      ; renamed = false
+      ; custom = Nothing
       }
   else None
 ;;
@@ -273,7 +292,7 @@ module App (Info : Rebase_info_external) :
   let set_name ({ cursor; entries; _ } as model) name =
     let current = entries.(cursor) in
     let copy = Array.copy entries in
-    copy.(cursor) <- { current with message = name; renamed = true };
+    copy.(cursor) <- { current with custom = Rename name };
     { model with entries = copy; mode = Navigate }
   ;;
 
