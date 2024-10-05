@@ -184,6 +184,14 @@ module App (Info : Rebase_info_external) :
     else String.sub s 0 max_size
   ;;
 
+  let at_most n l =
+    let rec aux acc n = function
+      | [] -> List.rev acc
+      | h :: t -> if n > 0 then aux (h :: acc) (n - 1) t else List.rev acc
+    in
+    aux [] n l
+  ;;
+
   let right_panel_view model =
     let left_width, max_width = panels_widths model in
     let files = Info.modified_files (current_sha1 model) in
@@ -193,6 +201,7 @@ module App (Info : Rebase_info_external) :
         , Tty.Default_style.default_style
         , crop_to_size max_width (" | " ^ f) ))
       files
+    |> at_most model.dimensions.row
   ;;
 
   let mapped_i_inplace f arr =
@@ -671,6 +680,66 @@ module Tests = struct
       pick: 2b '(1)B'
       ^v pick: 3c '(1)C'
       pick: 4d '(1)D'
+      |}]
+  ;;
+
+  let%expect_test "Crop modified list to fit terminal rows" =
+    let module Info =
+      Test_Info_with_modified (struct
+        let many_files = List.init 20 (fun i -> Printf.sprintf "file_at_row_%02d" (i + 1))
+        let modified = List.map (fun e -> e.sha1, many_files) test_entries
+      end)
+    in
+    let module A = App (Info) in
+    let print_render = print_render_app A.view
+    and play_events = play_events_app A.update in
+    let size = Tty.{ col = 999; row = 15 } in
+    Tty_testing.Test_Platform.set_dimensions size;
+    let resized = play_events [ Size size ] A.init in
+    print_render resized;
+    [%expect
+      {|
+      pick: 1a 'A' | file_at_row_01
+      pick: 2b 'B' | file_at_row_02
+      pick: 3c 'C' | file_at_row_03
+      pick: 4d 'D' | file_at_row_04
+                   | file_at_row_05
+                   | file_at_row_06
+                   | file_at_row_07
+                   | file_at_row_08
+                   | file_at_row_09
+                   | file_at_row_10
+                   | file_at_row_11
+                   | file_at_row_12
+                   | file_at_row_13
+                   | file_at_row_14
+                   | file_at_row_15
+      |}];
+    Tty_testing.Test_Platform.set_dimensions { size with row = 20 };
+    let expanded = play_events [ Size { size with row = 20 } ] resized in
+    print_render expanded;
+    [%expect
+      {|
+      pick: 1a 'A' | file_at_row_01
+      pick: 2b 'B' | file_at_row_02
+      pick: 3c 'C' | file_at_row_03
+      pick: 4d 'D' | file_at_row_04
+                   | file_at_row_05
+                   | file_at_row_06
+                   | file_at_row_07
+                   | file_at_row_08
+                   | file_at_row_09
+                   | file_at_row_10
+                   | file_at_row_11
+                   | file_at_row_12
+                   | file_at_row_13
+                   | file_at_row_14
+                   | file_at_row_15
+                   | file_at_row_16
+                   | file_at_row_17
+                   | file_at_row_18
+                   | file_at_row_19
+                   | file_at_row_20
       |}]
   ;;
 end
