@@ -9,13 +9,11 @@ module Terminal_platform_with_exit
 
   type command = Rebase.rebase_app_command
 
-  let write_git_entries (f : string) (content : Rebase.rebase_entry list) =
+  let write_git_entries (f : string) (content : string list) =
     let oc = open_out f in
     Fun.protect
       ~finally:(fun () -> close_out oc)
-      (fun () ->
-        Rebase.git_todo_of_rebase_entries content
-        |> List.iter (Qol.Out_channel.output_line oc))
+      (fun () -> List.iter (Qol.Out_channel.output_line oc) content)
   ;;
 
   (** Handle application exit by writing the current application rebase entries to the target rebase file and exiting the program *)

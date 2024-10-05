@@ -31,6 +31,7 @@ let string_of_rebase_command = function
 
 type custom_command =
   | Rename of string
+  | Explode
   | Nothing
 
 type rebase_entry =
@@ -43,12 +44,13 @@ type rebase_entry =
 let message_of_rebase_entry entry =
   match entry.custom with
   | Rename n -> n
-  | Nothing -> entry.message
+  | Nothing | Explode -> entry.message
 ;;
 
 let custom_info entry =
   match entry.custom with
   | Rename _ -> "(renamed)"
+  | Explode -> "(explode)"
   | _ -> ""
 ;;
 
@@ -61,17 +63,39 @@ let string_of_rebase_entry ({ command; sha1; _ } as entry) =
     (custom_info entry)
 ;;
 
-let git_todo_of_rebase_entry { command; sha1; message; custom } : string list =
+let git_todo_of_exploded_entry modified_files base sha1 =
+  let modified = modified_files sha1 in
+  if List.is_empty modified
+  then [ base ]
+  else (
+    let exec_each =
+      List.concat_map
+        (fun f ->
+          [ Printf.sprintf "git add %s" f
+          ; Printf.sprintf "git commit -m '(Exploded) %s'" f
+          ])
+        modified
+    in
+    let exec =
+      Printf.sprintf "exec %s" (String.concat " && " ("git reset HEAD~" :: exec_each))
+    in
+    [ base; exec ])
+;;
+
+let git_todo_of_rebase_entry modified_files { command; sha1; message; custom }
+  : string list
+  =
   let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message in
   match custom with
   | Rename new_name ->
     let exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" new_name in
     [ base; exec_rename ]
+  | Explode -> git_todo_of_exploded_entry modified_files base sha1
   | Nothing -> [ base ]
 ;;
 
-let git_todo_of_rebase_entries (entries : rebase_entry list) : string list =
-  List.concat_map git_todo_of_rebase_entry entries
+let git_todo_of_rebase_entries modified (entries : rebase_entry list) : string list =
+  List.concat_map (git_todo_of_rebase_entry modified) entries
 ;;
 
 let rec sublist n l =
@@ -114,7 +138,7 @@ module type Rebase_info_external = sig
   val modified_files : string -> string list
 end
 
-type rebase_app_command = Exit_with of rebase_entry list
+type rebase_app_command = Exit_with of string list
 
 module App (Info : Rebase_info_external) :
   Tty.Ansi_App with type command = rebase_app_command = struct
@@ -296,6 +320,14 @@ module App (Info : Rebase_info_external) :
     { model with entries = copy; mode = Navigate }
   ;;
 
+  let switch_explode ({ cursor; entries; _ } as model) =
+    let current = entries.(cursor) in
+    let copy = Array.copy entries in
+    copy.(cursor)
+    <- { current with custom = (if current.custom = Explode then Nothing else Explode) };
+    { model with entries = copy; mode = Navigate }
+  ;;
+
   let del_rename s =
     if String.length s = 0 then s else String.sub s 0 (String.length s - 1)
   ;;
@@ -310,6 +342,7 @@ module App (Info : Rebase_info_external) :
       set_rebase_command model Drop, []
     | Navigate, Char 'f' | Navigate, Char 'F' -> set_fixup model, []
     | Navigate, Char 'p' | Navigate, Char 'P' -> set_rebase_command model Pick, []
+    | Navigate, Char 'x' | Navigate, Char 'X' -> switch_explode model, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
     | Move, Left -> { model with mode = Navigate }, []
@@ -317,11 +350,16 @@ module App (Info : Rebase_info_external) :
     | Move, Char 'd' | Move, Char 'D' | Navigate, Del -> set_rebase_command model Drop, []
     | Move, Char 'f' | Move, Char 'F' -> set_fixup model, []
     | Move, Char 'p' | Move, Char 'P' -> set_rebase_command model Pick, []
+    | Move, Char 'x' | Move, Char 'X' -> switch_explode model, []
     | Rename name, Enter -> set_name model name, []
     | Rename _, Left -> { model with mode = Navigate }, []
     | Rename s, Char c -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
     | Rename s, Del -> { model with mode = Rename (del_rename s) }, []
-    | _, Esc -> model, [ Exit_with (Array.to_list model.entries) ]
+    | _, Esc ->
+      ( model
+      , [ Exit_with
+            (Array.to_list model.entries |> git_todo_of_rebase_entries Info.modified_files)
+        ] )
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
   ;;
