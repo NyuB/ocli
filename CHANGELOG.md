@@ -1,4 +1,4 @@
-## Current
+## 0.3.0
 ### Rebase
 #### Features
 - Introduced a 'vim like' command line. Triggered when typing **:** from either move or navigate mode. Typing **Esc** goes back to navigate mode, typing **Enter** execute the command.
