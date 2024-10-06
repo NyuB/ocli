@@ -220,6 +220,47 @@ let%expect_test "Display modified files along entries" =
     |}]
 ;;
 
+let%expect_test "CLI mode" =
+  let entered_cli = play_events [ Char ':' ] Test_App.init in
+  print_render entered_cli;
+  [%expect
+    {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+
+    :
+    |}];
+  let typing_command = play_events (chars "command") entered_cli in
+  print_render typing_command;
+  [%expect
+    {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+
+    :command
+    |}];
+  let quitting = play_events [ Esc ] typing_command in
+  print_render quitting;
+  [%expect {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let validate = play_events [ Enter ] typing_command in
+  print_render validate;
+  [%expect {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}]
+;;
+
 let%expect_test "Crop commit messages and file names" =
   let module I = struct
     include Test_Info
