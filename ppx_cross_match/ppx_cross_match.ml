@@ -13,8 +13,6 @@ let variant_pat_of_construct_expr ~loc pat_of_expr label =
   function
   | Some { pexp_desc = Pexp_constant c; pexp_loc = eloc; _ } ->
     ppat_construct ~loc label (Some (ppat_constant ~loc:eloc c))
-  | Some { pexp_desc = Pexp_extension (e, _); _ } when e.txt = "cross_any" ->
-    ppat_construct ~loc label (Some (ppat_any ~loc:e.loc))
   | Some e -> ppat_construct ~loc label (Some (pat_of_expr e))
   | None -> ppat_construct ~loc label None
 ;;
