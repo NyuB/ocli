@@ -187,6 +187,41 @@ let%expect_test "Display modified files along entries" =
     |}]
 ;;
 
+let%expect_test "Renaming" =
+  let renaming = play_events [ Right; Right ] Test_App.init in
+  print_render renaming;
+  [%expect {|
+    pick: 1a ''(renaming)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let type_letters = play_events (chars "New Message!") renaming in
+  print_render type_letters;
+  [%expect {|
+    pick: 1a 'New Message!'(renaming)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let validate_typing = play_events [ Enter ] type_letters in
+  print_render validate_typing;
+  [%expect {|
+    pick: 1a 'New Message!'(renamed)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let cancel_typing = play_events [ Left ] type_letters in
+  print_render cancel_typing;
+  [%expect {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}]
+;;
+
 let%expect_test "Crop commit messages and file names" =
   let module I = struct
     include Test_Info
