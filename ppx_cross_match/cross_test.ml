@@ -49,6 +49,18 @@ let match_with_cross_nested_tuples a b =
   | _ -> false
 ;;
 
+let match_with_cross_nested_constructor a b =
+  match a, b with
+  | [%cross_match (Some (Some 1), Some (Some 2)), ('a', 'b')] -> true
+  | _ -> false
+;;
+
+let match_with_cross_list a b =
+  match a, b with
+  | [%cross_match ([], [ 1 ], [ 1; 2 ]), ('a', 'b')] -> true
+  | _ -> false
+;;
+
 let do_match f a b =
   "Match", fun () -> Alcotest.check Alcotest.bool "Expected a match" true (f a b)
 ;;
@@ -85,5 +97,18 @@ let () =
       , let do_match = do_match match_with_cross_nested_tuples
         and do_not_match = do_not_match match_with_cross_nested_tuples in
         quick_tests [ do_match ("A", 1) 'a'; do_not_match ("A", 5) '1' ] )
+    ; ( "Ppx cross match with nested constructors"
+      , let do_match = do_match match_with_cross_nested_constructor
+        and do_not_match = do_not_match match_with_cross_nested_constructor in
+        quick_tests [ do_match (Some (Some 2)) 'a'; do_not_match None 'a' ] )
+    ; ( "Ppx cross match with lists"
+      , let do_match = do_match match_with_cross_list
+        and do_not_match = do_not_match match_with_cross_list in
+        quick_tests
+          [ do_match [] 'a'
+          ; do_match [ 1 ] 'a'
+          ; do_match [ 1; 2 ] 'a'
+          ; do_not_match [ 5 ] 'a'
+          ] )
     ]
 ;;
