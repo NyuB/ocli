@@ -23,6 +23,8 @@ let rec pattern_of_expr (e : expression) =
   match e.pexp_desc with
   | Pexp_constant c -> ppat_constant ~loc c
   | Pexp_extension (e, _) when e.txt = "cross_any" -> ppat_any ~loc
+  | Pexp_ident { loc = id_loc; txt = Lident id } ->
+    ppat_var ~loc { loc = id_loc; txt = id }
   | Pexp_construct (label, e) ->
     variant_pat_of_construct_expr ~loc pattern_of_expr label e
   | Pexp_tuple es -> ppat_tuple ~loc (List.map pattern_of_expr es)

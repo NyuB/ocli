@@ -61,6 +61,17 @@ let match_with_cross_list a b =
   | _ -> false
 ;;
 
+type abc =
+  | A of bool
+  | B of bool
+  | C
+
+let match_with_cross_bind a b =
+  match a, b with
+  | [%cross_match (A t, B t), [%cross_any]] -> t
+  | C, _ -> false
+;;
+
 let do_match f a b =
   "Match", fun () -> Alcotest.check Alcotest.bool "Expected a match" true (f a b)
 ;;
@@ -73,7 +84,7 @@ let () =
   Alcotest.run
     "Cross products"
     [ "Cross", quick_tests [ test_0x2; test_1x2; test_2x1 ]
-    ; ( "Ppx cross match with constant"
+    ; ( "Cross match with constant"
       , let do_match = do_match match_with_cross
         and do_not_match = do_not_match match_with_cross in
         quick_tests
@@ -88,20 +99,20 @@ let () =
           ; do_not_match "A" (Some 4)
           ; do_not_match "C" (Some 1)
           ] )
-    ; ( "Ppx cross match with any"
+    ; ( "Cross match with any"
       , let do_match = do_match match_with_cross_any
         and do_not_match = do_not_match match_with_cross_any in
         quick_tests
           [ do_match "A" (Some 3); do_match "A" (Some 1); do_not_match "C" (Some 1) ] )
-    ; ( "Ppx cross match with nested tuples"
+    ; ( "Cross match with nested tuples"
       , let do_match = do_match match_with_cross_nested_tuples
         and do_not_match = do_not_match match_with_cross_nested_tuples in
         quick_tests [ do_match ("A", 1) 'a'; do_not_match ("A", 5) '1' ] )
-    ; ( "Ppx cross match with nested constructors"
+    ; ( "Cross match with nested constructors"
       , let do_match = do_match match_with_cross_nested_constructor
         and do_not_match = do_not_match match_with_cross_nested_constructor in
         quick_tests [ do_match (Some (Some 2)) 'a'; do_not_match None 'a' ] )
-    ; ( "Ppx cross match with lists"
+    ; ( "Cross match with lists"
       , let do_match = do_match match_with_cross_list
         and do_not_match = do_not_match match_with_cross_list in
         quick_tests
@@ -109,6 +120,16 @@ let () =
           ; do_match [ 1 ] 'a'
           ; do_match [ 1; 2 ] 'a'
           ; do_not_match [ 5 ] 'a'
+          ] )
+    ; ( "Cross match with binds"
+      , let do_match = do_match match_with_cross_bind
+        and do_not_match = do_not_match match_with_cross_bind in
+        quick_tests
+          [ do_match (A true) 0
+          ; do_match (B true) 0
+          ; do_not_match (A false) 0
+          ; do_not_match (B false) 0
+          ; do_not_match C 0
           ] )
     ]
 ;;
