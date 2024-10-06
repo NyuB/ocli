@@ -273,46 +273,32 @@ let%expect_test "Slide entry list to fit terminal rows" =
   and play_events = play_events_app A.update in
   let resized = play_events [ Size size ] A.init in
   print_render resized;
-  [%expect
-    {|
+  [%expect {|
     pick: 1a '(0)A'
     pick: 2b '(0)B'
     pick: 3c '(0)C'
-    pick: 4d '(0)D'
-    pick: 1a '(1)A'
     |}];
   (*End with a Right to make the current selected entry clear *)
   print_render (play_events [ Down; Right ] resized);
-  [%expect
-    {|
+  [%expect {|
     pick: 1a '(0)A'
     ^v pick: 2b '(0)B'
     pick: 3c '(0)C'
-    pick: 4d '(0)D'
-    pick: 1a '(1)A'
     |}];
   print_render (play_events [ Down; Down; Right ] resized);
-  [%expect
-    {|
-    pick: 1a '(0)A'
+  [%expect {|
     pick: 2b '(0)B'
     ^v pick: 3c '(0)C'
     pick: 4d '(0)D'
-    pick: 1a '(1)A'
     |}];
   print_render (play_events [ Down; Down; Down; Right ] resized);
-  [%expect
-    {|
-    pick: 2b '(0)B'
+  [%expect {|
     pick: 3c '(0)C'
     ^v pick: 4d '(0)D'
     pick: 1a '(1)A'
-    pick: 2b '(1)B'
     |}];
   print_render (play_events [ Down; Down; Down; Down; Down; Down; Right ] resized);
-  [%expect
-    {|
-    pick: 1a '(1)A'
+  [%expect {|
     pick: 2b '(1)B'
     ^v pick: 3c '(1)C'
     pick: 4d '(1)D'
@@ -348,8 +334,6 @@ let%expect_test "Crop modified list to fit terminal rows" =
                  | file_at_row_11
                  | file_at_row_12
                  | file_at_row_13
-                 | file_at_row_14
-                 | file_at_row_15
     |}];
   Tty_testing.Test_Platform.set_dimensions { size with row = 20 };
   let expanded = play_events [ Size { size with row = 20 } ] resized in
@@ -374,7 +358,5 @@ let%expect_test "Crop modified list to fit terminal rows" =
                  | file_at_row_16
                  | file_at_row_17
                  | file_at_row_18
-                 | file_at_row_19
-                 | file_at_row_20
     |}]
 ;;

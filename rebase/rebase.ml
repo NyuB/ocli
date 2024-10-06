@@ -164,6 +164,7 @@ module App (Info : Rebase_info_external) :
     | Move (** Moving a single rebase entry up & down *)
     | Rename of string
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
+    | Cli of string
 
   type model =
     { entries : rebase_entry array
@@ -196,7 +197,7 @@ module App (Info : Rebase_info_external) :
     let prefix = if e.command = Fixup then "   " else "" in
     let repr =
       match model.mode with
-      | Navigate -> prefix ^ string_of_rebase_entry e
+      | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
       | Move when model.cursor <> i -> prefix ^ string_of_rebase_entry e
       | Rename _ when model.cursor <> i -> prefix ^ string_of_rebase_entry e
       | Move -> "^v " ^ string_of_rebase_entry e
@@ -222,11 +223,27 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let entry_count model = Array.length model.entries
+  let cli_line_count = 2
+
+  let cli_view model =
+    let style = Tty.Default_style.default_style in
+    let content_line =
+      match model.mode with
+      | Cli s -> s
+      | _ -> ""
+    in
+    Tty.
+      [ ( { row = min model.dimensions.row (entry_count model + 2); col = 1 }
+        , style
+        , content_line )
+      ]
+  ;;
 
   let start_dest model =
-    let before = model.dimensions.row / 2 in
+    let available = model.dimensions.row - cli_line_count in
+    let before = available / 2 in
     let start = max 0 (model.cursor - before) in
-    let dest = min (entry_count model - 1) (start + model.dimensions.row - 1) in
+    let dest = min (entry_count model - 1) (start + available - 1) in
     start, dest
   ;;
 
@@ -257,7 +274,7 @@ module App (Info : Rebase_info_external) :
         , Tty.Default_style.default_style
         , crop_to_size max_width (" | " ^ f) ))
       files
-    |> at_most model.dimensions.row
+    |> at_most (model.dimensions.row - cli_line_count)
   ;;
 
   let mapped_i_inplace f arr =
@@ -280,7 +297,7 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let view model : Tty.ansi_view_item list =
-    left_panel_view model @ right_panel_view model
+    left_panel_view model @ right_panel_view model @ cli_view model
   ;;
 
   let swap arr a b =
@@ -341,8 +358,17 @@ module App (Info : Rebase_info_external) :
     { model with entries = copy; mode = Navigate }
   ;;
 
-  let del_rename s =
+  let del_last_char s =
     if String.length s = 0 then s else String.sub s 0 (String.length s - 1)
+  ;;
+
+  let append_char s c = Printf.sprintf "%s%c" s c
+
+  let exit_with model =
+    ( model
+    , [ Exit_with
+          (Array.to_list model.entries |> git_todo_of_rebase_entries Info.modified_files)
+      ] )
   ;;
 
   let update model (event : Tty.ansi_event) =
@@ -351,25 +377,27 @@ module App (Info : Rebase_info_external) :
     | Navigate, Down ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
     | Navigate, Right -> { model with mode = Move }, []
+    | Navigate, Char ':' -> { model with mode = Cli ":" }, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
     | Move, Left -> { model with mode = Navigate }, []
     | Move, Right -> { model with mode = Rename "" }, []
+    | Move, Char ':' -> { model with mode = Cli ":" }, []
     | Rename name, Enter -> set_name model name, []
     | Rename _, Esc -> { model with mode = Navigate }, []
-    | Rename s, Char c -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
-    | Rename s, Del -> { model with mode = Rename (del_rename s) }, []
+    | Rename s, Char c -> { model with mode = Rename (append_char s c) }, []
+    | Rename s, Del -> { model with mode = Rename (del_last_char s) }, []
+    | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
+    | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
+    | Cli _, Esc -> { model with mode = Navigate }, []
+    | Cli ":q", Enter -> exit_with model
+    | Cli _, Enter -> { model with mode = Navigate }, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
       set_rebase_command model Drop, []
     | [%cross_match (Navigate, Move), (Char 'f', Char 'F')] -> set_fixup model, []
     | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
       set_rebase_command model Pick, []
     | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
-    | _, Esc ->
-      ( model
-      , [ Exit_with
-            (Array.to_list model.entries |> git_todo_of_rebase_entries Info.modified_files)
-        ] )
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
   ;;
