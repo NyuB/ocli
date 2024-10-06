@@ -241,10 +241,14 @@ module App (Info : Rebase_info_external) :
 
   let start_dest model =
     let available = model.dimensions.row - cli_line_count in
-    let before = available / 2 in
-    let start = max 0 (model.cursor - before) in
-    let dest = min (entry_count model - 1) (start + available - 1) in
-    start, dest
+    let full = entry_count model in
+    if full <= available
+    then 0, full - 1
+    else (
+      let before = available / 2 in
+      let start = max 0 (model.cursor - before) in
+      let dest = min (entry_count model - 1) (start + available - 1) in
+      start, dest)
   ;;
 
   let slice start dest arr = Array.init (dest - start + 1) (fun i -> arr.(i + start))
