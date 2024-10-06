@@ -72,12 +72,12 @@ let%expect_test "Renaming" =
   print_render renaming;
   [%expect
     {|
-    pick: 1a ''(renaming)
+    pick: 1a 'A'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
-  let type_letters = play_events (chars "Awesome Message!") renaming in
+  let type_letters = play_events (chars "wesome Message!") renaming in
   print_render type_letters;
   [%expect
     {|
