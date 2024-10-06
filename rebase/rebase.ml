@@ -375,6 +375,9 @@ module App (Info : Rebase_info_external) :
       ] )
   ;;
 
+  let switch_mode model mode = { model with mode }
+  let renaming_with model s = { model with mode = Rename s }
+
   let current_message model =
     match current_entry model with
     | { custom = Rename s; _ } -> s
@@ -386,29 +389,28 @@ module App (Info : Rebase_info_external) :
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
     | Navigate, Down ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
-    | Navigate, Right -> { model with mode = Move }, []
-    | Navigate, Char ':' -> { model with mode = Cli ":" }, []
+    | Navigate, Right -> switch_mode model Move, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
-    | Move, Left -> { model with mode = Navigate }, []
-    | Move, Char ':' -> { model with mode = Cli ":" }, []
+    | Move, Left -> switch_mode model Navigate, []
     | Rename name, Enter -> set_name model name, []
-    | Rename _, Esc -> { model with mode = Navigate }, []
-    | Rename s, Char c -> { model with mode = Rename (append_char s c) }, []
-    | Rename s, Del -> { model with mode = Rename (del_last_char s) }, []
+    | Rename s, Char c -> renaming_with model (append_char s c), []
+    | Rename s, Del -> renaming_with model (del_last_char s), []
     | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
     | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
-    | Cli _, Esc -> { model with mode = Navigate }, []
     | Cli ":q", Enter -> exit_with model
-    | Cli _, Enter -> { model with mode = Navigate }, []
+    | Cli _, Enter -> switch_mode model Navigate, []
+    | [%cross_match (Navigate, Move), Char ':'] -> switch_mode model (Cli ":"), []
+    | [%cross_match (Rename [%cross_any], Cli [%cross_any]), Esc] ->
+      switch_mode model Navigate, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
       set_rebase_command model Drop, []
     | [%cross_match (Navigate, Move), (Char 'f', Char 'F')] -> set_fixup model, []
     | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
       set_rebase_command model Pick, []
     | [%cross_match (Navigate, Move), Char 'r'] ->
-      { model with mode = Rename (current_message model) }, []
-    | [%cross_match (Navigate, Move), Char 'R'] -> { model with mode = Rename "" }, []
+      renaming_with model (current_message model), []
+    | [%cross_match (Navigate, Move), Char 'R'] -> renaming_with model "", []
     | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
