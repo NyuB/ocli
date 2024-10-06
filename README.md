@@ -1,4 +1,6 @@
 # OCaml CLI Mini-framework
+![ci status badge](https://github.com/NyuB/ocli/actions/workflows/ci.yml/badge.svg)
+![commits since last release](https://img.shields.io/github/commits-since/NyuB/ocli/latest/main)
 
 ## Apps
 ### Demos
