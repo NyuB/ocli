@@ -43,6 +43,12 @@ let match_with_cross_any a b =
   | _ -> false
 ;;
 
+let match_with_cross_nested_tuples a b =
+  match a, b with
+  | [%cross_match (("A", 1), ("B", 2)), ('a', 'b')] -> true
+  | _ -> false
+;;
+
 let do_match f a b =
   "Match", fun () -> Alcotest.check Alcotest.bool "Expected a match" true (f a b)
 ;;
@@ -75,5 +81,9 @@ let () =
         and do_not_match = do_not_match match_with_cross_any in
         quick_tests
           [ do_match "A" (Some 3); do_match "A" (Some 1); do_not_match "C" (Some 1) ] )
+    ; ( "Ppx cross match with nested tuples"
+      , let do_match = do_match match_with_cross_nested_tuples
+        and do_not_match = do_not_match match_with_cross_nested_tuples in
+        quick_tests [ do_match ("A", 1) 'a'; do_not_match ("A", 5) '1' ] )
     ]
 ;;

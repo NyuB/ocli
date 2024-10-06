@@ -26,7 +26,7 @@ let rec pattern_of_expr (e : expression) =
   | Pexp_constant c -> ppat_constant ~loc c
   | Pexp_extension (e, _) when e.txt = "cross_any" -> ppat_any ~loc
   | Pexp_construct (label, e) -> variant_pat_of_construct_expr ~loc label e
-  | Pexp_tuple es -> combine_patterns ~loc (List.map pattern_of_expr es)
+  | Pexp_tuple es -> ppat_tuple ~loc (List.map pattern_of_expr es)
   | _ -> failwith "Cannot expand non-constant or tuple patterns"
 ;;
 
