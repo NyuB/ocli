@@ -385,7 +385,7 @@ module App (Info : Rebase_info_external) :
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
     | Move, Left -> { model with mode = Navigate }, []
-    | Move, Right -> { model with mode = Rename "" }, []
+    | Move, Right -> { model with mode = Rename (current_entry model).message }, []
     | Move, Char ':' -> { model with mode = Cli ":" }, []
     | Rename name, Enter -> set_name model name, []
     | Rename _, Esc -> { model with mode = Navigate }, []
