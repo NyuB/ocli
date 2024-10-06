@@ -375,6 +375,12 @@ module App (Info : Rebase_info_external) :
       ] )
   ;;
 
+  let current_message model =
+    match current_entry model with
+    | { custom = Rename s; _ } -> s
+    | { message; _ } -> message
+  ;;
+
   let update model (event : Tty.ansi_event) =
     match model.mode, event with
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
@@ -385,7 +391,6 @@ module App (Info : Rebase_info_external) :
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
     | Move, Left -> { model with mode = Navigate }, []
-    | Move, Right -> { model with mode = Rename (current_entry model).message }, []
     | Move, Char ':' -> { model with mode = Cli ":" }, []
     | Rename name, Enter -> set_name model name, []
     | Rename _, Esc -> { model with mode = Navigate }, []
@@ -401,6 +406,9 @@ module App (Info : Rebase_info_external) :
     | [%cross_match (Navigate, Move), (Char 'f', Char 'F')] -> set_fixup model, []
     | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
       set_rebase_command model Pick, []
+    | [%cross_match (Navigate, Move), Char 'r'] ->
+      { model with mode = Rename (current_message model) }, []
+    | [%cross_match (Navigate, Move), Char 'R'] -> { model with mode = Rename "" }, []
     | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []

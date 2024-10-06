@@ -68,7 +68,7 @@ let%expect_test "Navigate between commits" =
 let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
 
 let%expect_test "Renaming" =
-  let renaming = play_events [ Right; Right ] Test_App.init in
+  let renaming = play_events [ Char 'r' ] Test_App.init in
   print_render renaming;
   [%expect
     {|
@@ -99,6 +99,24 @@ let%expect_test "Renaming" =
   print_render cancel_typing;
   [%expect {|
     pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let rename_erasing = play_events [ Char 'R' ] validate_typing in
+  print_render rename_erasing;
+  [%expect
+    {|
+    pick: 1a ''(renaming)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let rename_keeping_renamed = play_events [ Char 'r' ] validate_typing in
+  print_render rename_keeping_renamed;
+  [%expect
+    {|
+    pick: 1a 'Awesome Message!'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
