@@ -356,7 +356,7 @@ module App (Info : Rebase_info_external) :
     | Move, Left -> { model with mode = Navigate }, []
     | Move, Right -> { model with mode = Rename "" }, []
     | Rename name, Enter -> set_name model name, []
-    | Rename _, Left -> { model with mode = Navigate }, []
+    | Rename _, Esc -> { model with mode = Navigate }, []
     | Rename s, Char c -> { model with mode = Rename (Printf.sprintf "%s%c" s c) }, []
     | Rename s, Del -> { model with mode = Rename (del_rename s) }, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->

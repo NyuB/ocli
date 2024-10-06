@@ -1,5 +1,7 @@
 ## Current
 ### Rebase
+#### Changes
+- Canceling a rename is now done with the **Esc** key instead of the **Left** arrow key
 #### Features
 - Reduce rebase_edit binary size by ~4MB by extracting inline tests to a separate module
 - "Explode" split a commit into multiple ones, one for each file modified in the original commit

@@ -95,7 +95,7 @@ let%expect_test "Renaming" =
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
-  let cancel_typing = play_events [ Left ] type_letters in
+  let cancel_typing = play_events [ Esc ] type_letters in
   print_render cancel_typing;
   [%expect {|
     pick: 1a 'A'
