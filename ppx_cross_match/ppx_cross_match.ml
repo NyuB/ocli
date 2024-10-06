@@ -8,20 +8,13 @@ let combine_patterns ~loc patterns =
   List.fold_left (Ast_builder.Default.ppat_or ~loc) first rest
 ;;
 
-let variant_pat_of_variant_expr ~loc label =
-  let open Ast_builder.Default in
-  function
-  | Some { pexp_desc = Pexp_constant c; pexp_loc = eloc; _ } ->
-    ppat_variant ~loc label (Some (ppat_constant ~loc:eloc c))
-  | None -> ppat_variant ~loc label None
-  | _ -> failwith "Cannot expand non-constant patterns"
-;;
-
 let variant_pat_of_construct_expr ~loc label =
   let open Ast_builder.Default in
   function
   | Some { pexp_desc = Pexp_constant c; pexp_loc = eloc; _ } ->
     ppat_construct ~loc label (Some (ppat_constant ~loc:eloc c))
+  | Some { pexp_desc = Pexp_extension (e, _); _ } when e.txt = "cross_any" ->
+    ppat_construct ~loc label (Some (ppat_any ~loc:e.loc))
   | None -> ppat_construct ~loc label None
   | _ -> failwith "Cannot expand non-constant patterns"
 ;;
@@ -31,7 +24,7 @@ let rec pattern_of_expr (e : expression) =
   let loc = e.pexp_loc in
   match e.pexp_desc with
   | Pexp_constant c -> ppat_constant ~loc c
-  | Pexp_variant (label, e) -> variant_pat_of_variant_expr ~loc label e
+  | Pexp_extension (e, _) when e.txt = "cross_any" -> ppat_any ~loc
   | Pexp_construct (label, e) -> variant_pat_of_construct_expr ~loc label e
   | Pexp_tuple es -> combine_patterns ~loc (List.map pattern_of_expr es)
   | _ -> failwith "Cannot expand non-constant or tuple patterns"

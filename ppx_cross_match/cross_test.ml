@@ -37,24 +37,28 @@ let match_with_cross a b =
   | _ -> false
 ;;
 
-let do_match a b =
-  ( "Match"
-  , fun () -> Alcotest.check Alcotest.bool "Exepected a match" true (match_with_cross a b)
-  )
+let match_with_cross_any a b =
+  match a, b with
+  | [%cross_match ("A", "B"), Some [%cross_any]] -> true
+  | _ -> false
 ;;
 
-let do_not_match a b =
-  ( "No Match"
-  , fun () ->
-      Alcotest.check Alcotest.bool "Exepected no match" false (match_with_cross a b) )
+let do_match f a b =
+  "Match", fun () -> Alcotest.check Alcotest.bool "Expected a match" true (f a b)
+;;
+
+let do_not_match f a b =
+  "No Match", fun () -> Alcotest.check Alcotest.bool "Expected no match" false (f a b)
 ;;
 
 let () =
   Alcotest.run
     "Cross products"
     [ "Cross", quick_tests [ test_0x2; test_1x2; test_2x1 ]
-    ; ( "Ppx cross"
-      , quick_tests
+    ; ( "Ppx cross match with constant"
+      , let do_match = do_match match_with_cross
+        and do_not_match = do_not_match match_with_cross in
+        quick_tests
           [ do_match "A" (Some 1)
           ; do_match "B" (Some 1)
           ; do_match "A" (Some 2)
@@ -66,5 +70,10 @@ let () =
           ; do_not_match "A" (Some 4)
           ; do_not_match "C" (Some 1)
           ] )
+    ; ( "Ppx cross match with any"
+      , let do_match = do_match match_with_cross_any
+        and do_not_match = do_not_match match_with_cross_any in
+        quick_tests
+          [ do_match "A" (Some 3); do_match "A" (Some 1); do_not_match "C" (Some 1) ] )
     ]
 ;;
