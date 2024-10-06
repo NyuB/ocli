@@ -31,7 +31,9 @@ let string_of_rebase_command = function
 
 type custom_command =
   | Rename of string
+  (** Replace the message of a commit. Differs from git [Reword] in that it will be applied without further user actions. *)
   | Explode
+  (** Split a single commit into one commit by modified file in the original commit *)
   | Nothing
 
 type rebase_entry =
@@ -82,6 +84,7 @@ let git_todo_of_exploded_entry modified_files base sha1 =
     [ base; exec ])
 ;;
 
+(** [git_todo_of_rebase_entry modified_files entry] returns the git rebase command line to execute to apply [entry], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase *)
 let git_todo_of_rebase_entry modified_files { command; sha1; message; custom }
   : string list
   =
@@ -94,8 +97,11 @@ let git_todo_of_rebase_entry modified_files { command; sha1; message; custom }
   | Nothing -> [ base ]
 ;;
 
-let git_todo_of_rebase_entries modified (entries : rebase_entry list) : string list =
-  List.concat_map (git_todo_of_rebase_entry modified) entries
+(** [git_todo_of_rebase_entries modified_files entries] returns the git rebase command line to execute to apply [entries], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase.
+
+    Note that it will not necessarily return 1 line for 1 entry, since a single entry can be translated to multiple git commands, such as intermediary {b exec}s. *)
+let git_todo_of_rebase_entries modified_files (entries : rebase_entry list) : string list =
+  List.concat_map (git_todo_of_rebase_entry modified_files) entries
 ;;
 
 let rec sublist n l =
@@ -133,12 +139,19 @@ let parse_rebase_file f =
   Fun.protect ~finally:(fun () -> close_in ic) (fun () -> aux [] |> parse_entries)
 ;;
 
+(** External information about git status that should be provided by the platform *)
 module type Rebase_info_external = sig
+  (** The content of the initial rebase file *)
   val entries : rebase_entry list
+
+  (** [modified_files sha1] should return all the files modified by commit with ref [sha1] *)
   val modified_files : string -> string list
 end
 
-type rebase_app_command = Exit_with of string list
+(** Commands required by [App] *)
+type rebase_app_command =
+  | Exit_with of string list
+  (** [Exit_with lines] Signals the end of the rebase entries processing, platform should handle back control to git after writing [lines] to the rebase file *)
 
 module App (Info : Rebase_info_external) :
   Tty.Ansi_App with type command = rebase_app_command = struct
@@ -147,15 +160,16 @@ module App (Info : Rebase_info_external) :
   type command = rebase_app_command
 
   type mode =
-    | Navigate
-    | Move
+    | Navigate (** Navigating between rebase entries *)
+    | Move (** Moving a single rebase entry up & down *)
     | Rename of string
+    (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
 
   type model =
     { entries : rebase_entry array
-    ; cursor : int
-    ; mode : mode
-    ; dimensions : Tty.position
+    ; cursor : int (** The current selected entry index within [entries] *)
+    ; mode : mode (** Crurrent [mode] *)
+    ; dimensions : Tty.position (** Current dimensions of the display *)
     }
 
   let init =

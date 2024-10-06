@@ -1,7 +1,7 @@
 .PHONY: build default demo fmt test test-promote
 INSTALL_ROOT=~/bin
 
-default: fmt test build
+default: fmt test build doc
 
 test:
 	dune test
