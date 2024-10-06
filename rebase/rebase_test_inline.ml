@@ -9,6 +9,20 @@ end
 
 module Test_App = App (Test_Info)
 
+module Test_Info_with_modified (M : sig
+    val modified : (string * string list) list
+  end) =
+struct
+  let entries = test_entries
+
+  let modified_files sha1 =
+    List.find_map
+      (fun (ref, files) -> if String.equal sha1 ref then Some files else None)
+      M.modified
+    |> Option.value ~default:[]
+  ;;
+end
+
 let play_events_app update events model =
   List.fold_left (fun m e -> Qol.first @@ update m e) model events
 ;;
@@ -53,9 +67,9 @@ let%expect_test "Navigate between commits" =
 
 let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
 
-let%expect_test "Rename a commit" =
-  let right_right = play_events [ Right; Right ] Test_App.init in
-  print_render right_right;
+let%expect_test "Renaming" =
+  let renaming = play_events [ Right; Right ] Test_App.init in
+  print_render renaming;
   [%expect
     {|
     pick: 1a ''(renaming)
@@ -63,13 +77,28 @@ let%expect_test "Rename a commit" =
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
-  let renamed =
-    play_events (chars "Awesome name!") right_right |> play_events [ Enter ]
-  in
-  print_render renamed;
+  let type_letters = play_events (chars "Awesome Message!") renaming in
+  print_render type_letters;
   [%expect
     {|
-    pick: 1a 'Awesome name!'(renamed)
+    pick: 1a 'Awesome Message!'(renaming)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let validate_typing = play_events [ Enter ] type_letters in
+  print_render validate_typing;
+  [%expect
+    {|
+    pick: 1a 'Awesome Message!'(renamed)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let cancel_typing = play_events [ Left ] type_letters in
+  print_render cancel_typing;
+  [%expect {|
+    pick: 1a 'A'
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
@@ -130,20 +159,6 @@ let%expect_test "Cannot fixup root entry" =
     |}]
 ;;
 
-module Test_Info_with_modified (M : sig
-    val modified : (string * string list) list
-  end) =
-struct
-  let entries = test_entries
-
-  let modified_files sha1 =
-    List.find_map
-      (fun (ref, files) -> if String.equal sha1 ref then Some files else None)
-      M.modified
-    |> Option.value ~default:[]
-  ;;
-end
-
 let%expect_test "Display modified files along entries" =
   let module Info : Rebase_info_external =
     Test_Info_with_modified (struct
@@ -184,41 +199,6 @@ let%expect_test "Display modified files along entries" =
                  | 5.c
                  | 6.c
                  | 7.c
-    |}]
-;;
-
-let%expect_test "Renaming" =
-  let renaming = play_events [ Right; Right ] Test_App.init in
-  print_render renaming;
-  [%expect {|
-    pick: 1a ''(renaming)
-    pick: 2b 'B'
-    pick: 3c 'C'
-    pick: 4d 'D'
-    |}];
-  let type_letters = play_events (chars "New Message!") renaming in
-  print_render type_letters;
-  [%expect {|
-    pick: 1a 'New Message!'(renaming)
-    pick: 2b 'B'
-    pick: 3c 'C'
-    pick: 4d 'D'
-    |}];
-  let validate_typing = play_events [ Enter ] type_letters in
-  print_render validate_typing;
-  [%expect {|
-    pick: 1a 'New Message!'(renamed)
-    pick: 2b 'B'
-    pick: 3c 'C'
-    pick: 4d 'D'
-    |}];
-  let cancel_typing = play_events [ Left ] type_letters in
-  print_render cancel_typing;
-  [%expect {|
-    pick: 1a 'A'
-    pick: 2b 'B'
-    pick: 3c 'C'
-    pick: 4d 'D'
     |}]
 ;;
 
