@@ -32,3 +32,6 @@ install-newbase: build
 	# Make the installed files writable to allow future deletion or replacement
 	chmod +w $(INSTALL_ROOT)/rebase_edit
 	chmod +w $(INSTALL_ROOT)/newbase
+
+changelog-for-release:
+	dune exec changelog -- CHANGELOG.md CHANGELOG_FOR_RELEASE.md

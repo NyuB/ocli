@@ -1,0 +1,10 @@
+# Changelog
+## 2.0.0
+### Feats
+- Wow
+- Awesome
+Great !
+## 1.0.0
+Past things
+## 0.9.0
+Older stuff

@@ -41,10 +41,17 @@ jobs:
           eval $(opam env)
           make test
 
-      - name: Build rebase_edit executable
+      - name: Build executables
         run: |
           eval $(opam env)
+          make build
           make install-newbase INSTALL_ROOT=.
+
+      - name: Generate changelog
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          eval $(opam env)
+          make changelog-for-release
 
       - name: Release
         # Only if manually triggered
@@ -54,7 +61,7 @@ jobs:
           name: ${{ github.event.inputs.name }}
           tag_name: ${{ github.event.inputs.name }}
           target_commitish: main
-          body_path: CHANGELOG.md
+          body_path: CHANGELOG_FOR_RELEASE.md
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             newbase

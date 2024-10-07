@@ -1,0 +1,18 @@
+(executable
+ (name sexpfmt)
+ (public_name sexpfmt)
+ (modules sexpfmt)
+ (libraries sexplib))
+
+(executable
+ (name gitignorefmt)
+ (public_name gitignorefmt)
+ (modules gitignorefmt))
+
+(executable
+ (name changelog)
+ (public_name changelog)
+ (modules changelog))
+
+(cram
+ (deps %{bin:changelog}))
