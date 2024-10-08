@@ -43,7 +43,7 @@ $ mv rebase_edit ~/bin/
 ### Build
 
 ```bash
-opam switch create .
+opam install . --deps-only --with-test
 dune build
 ```
 

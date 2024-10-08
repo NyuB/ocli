@@ -23,35 +23,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install opam
-        run: |
-          sudo apt install -y opam
-          opam init -y --shell-setup
-          opam switch create 5.2.0
-          eval $(opam env)
-          opam install -y dune alcotest ocamlformat ppx_expect sexplib
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.2
+
+      - run: opam install . --deps-only --with-test
 
       - name: Enforce source code formatting
         run: |
-          eval $(opam env)
-          make fmt-check
+          opam exec -- make fmt-check
           
       - name: Tests
         run: |
-          eval $(opam env)
-          make test
+          opam exec -- make test
 
       - name: Build executables
         run: |
-          eval $(opam env)
-          make build
-          make install-newbase INSTALL_ROOT=.
+          opam exec -- make build
+          opam exec -- make install-newbase INSTALL_ROOT=.
 
       - name: Generate changelog
         if: github.event_name == 'workflow_dispatch'
         run: |
-          eval $(opam env)
-          make changelog-for-release
+          opam exec -- make changelog-for-release
 
       - name: Release
         # Only if manually triggered
