@@ -1,14 +1,13 @@
 #!/bin/bash
 
+REF=${1:?"Usage: newbase <REF|number>"}
 CUSTOM_EDITOR=${CUSTOM_EDITOR:-rebase_edit}
 RESET=${RESET:-true}
 
 # If the first argument is a number, interpret it as an offset from the current HEAD
 ONLY_DIGITS="^[0-9]+$"
 if [[ "$1" =~ $ONLY_DIGITS ]]; then
-    REF="HEAD~$1"
-else
-    REF=$1
+    REF="HEAD~$REF"
 fi;
 
 #

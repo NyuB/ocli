@@ -25,3 +25,8 @@ When passing a number <n>, it is interpreted as the ref HEAD~<n>
   $ newbase_test 2 | grep -Po "${ONLY_COMMITS}"
   Commit 3 # empty
   Commit 4 # empty
+Fail when missing argument
+(not using the newbase_test helper is deliberate, to display the error message)
+  $ CUSTOM_EDITOR=rebase_pass RESET=false ./newbase
+  ./newbase: line 3: 1: Usage: newbase <REF|number>
+  [1]
