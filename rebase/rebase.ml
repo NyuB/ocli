@@ -176,18 +176,41 @@ module App (Info : Rebase_info_external) :
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
     | Cli of string
 
+  module type Symbols = sig
+    val up_arrow_prefix : string
+    val down_arrow_prefix : string
+    val up_and_down_arrow_prefix : string
+    val fixup_prefix : string
+  end
+
+  module Pretty_symbols : Symbols = struct
+    let up_arrow_prefix = "▲  "
+    let down_arrow_prefix = " ▼ "
+    let up_and_down_arrow_prefix = "▲▼ "
+    let fixup_prefix = " ∟ "
+  end
+
   type model =
     { entries : rebase_entry array
     ; cursor : int (** The current selected entry index within [entries] *)
     ; mode : mode (** Crurrent [mode] *)
     ; dimensions : Tty.position (** Current dimensions of the display *)
+    ; symbols : (module Symbols) (** Special symbol representation *)
     }
+
+  module Raw_symbols : Symbols = struct
+    let up_arrow_prefix = "^  "
+    let down_arrow_prefix = " v "
+    let up_and_down_arrow_prefix = "^v "
+    let fixup_prefix = " |_"
+  end
 
   let init =
     { entries = Array.of_list Info.entries
     ; cursor = 0
     ; mode = Navigate
     ; dimensions = { row = 25; col = 80 }
+    ; symbols = (module Pretty_symbols)
     }
   ;;
 
@@ -200,13 +223,19 @@ module App (Info : Rebase_info_external) :
   let move_prefix model =
     let is_first = model.cursor = 0
     and is_last = model.cursor = entry_count model - 1 in
+    let module S = (val model.symbols) in
     if is_first && is_last
     then "   "
     else if is_first
-    then "▼  "
+    then S.down_arrow_prefix
     else if is_last
-    then "▲  "
-    else "▲▼ "
+    then S.up_arrow_prefix
+    else S.up_and_down_arrow_prefix
+  ;;
+
+  let fixup_prefix model =
+    let module S = (val model.symbols) in
+    S.fixup_prefix
   ;;
 
   let highlight_entry i e model =
@@ -218,7 +247,7 @@ module App (Info : Rebase_info_external) :
       then { base_style with bg_color = Some Tty.Cyan }
       else base_style
     in
-    let prefix = if is_fixup e.command then " ∟ " else "" in
+    let prefix = if is_fixup e.command then fixup_prefix model else "" in
     let repr =
       match model.mode with
       | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
@@ -392,7 +421,7 @@ module App (Info : Rebase_info_external) :
       ] )
   ;;
 
-  let switch_mode model mode = { model with mode }
+  let switch_mode mode model = { model with mode }
   let renaming_with model s = { model with mode = Rename s }
 
   let current_message model =
@@ -406,20 +435,24 @@ module App (Info : Rebase_info_external) :
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
     | Navigate, Down ->
       { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
-    | Navigate, Right -> switch_mode model Move, []
+    | Navigate, Right -> switch_mode Move model, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
-    | Move, Left -> switch_mode model Navigate, []
+    | Move, Left -> switch_mode Navigate model, []
     | Rename name, Enter -> set_name model name, []
     | Rename s, Char c -> renaming_with model (append_char s c), []
     | Rename s, Del -> renaming_with model (del_last_char s), []
     | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
     | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
     | Cli ":q", Enter -> exit_with model
-    | Cli _, Enter -> switch_mode model Navigate, []
-    | [%cross_match (Navigate, Move), Char ':'] -> switch_mode model (Cli ":"), []
+    | Cli ":pretty", Enter ->
+      { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
+    | Cli ":raw", Enter ->
+      { model with symbols = (module Raw_symbols) } |> switch_mode Navigate, []
+    | Cli _, Enter -> switch_mode Navigate model, []
+    | [%cross_match (Navigate, Move), Char ':'] -> switch_mode (Cli ":") model, []
     | [%cross_match (Rename [%cross_any], Cli [%cross_any]), Esc] ->
-      switch_mode model Navigate, []
+      switch_mode Navigate model, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
       set_rebase_command model Drop, []
     | [%cross_match (Navigate, Move), Char 'f'] -> set_fixup model Discard_message, []
