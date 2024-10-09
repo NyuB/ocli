@@ -124,15 +124,22 @@ let git_todo_of_rebase_entries
 let parse_entry (line : string) : rebase_entry option =
   let line = String.trim line in
   let parts = String.split_on_char ' ' line in
-  if List.length parts >= 3 && String.equal (List.hd parts) "pick"
-  then
-    Some
-      { command = Pick
-      ; sha1 = List.nth parts 1
-      ; message = String.concat " " (List.sublist 2 parts)
-      ; custom = Nothing
-      }
-  else None
+  let concat = String.concat " "
+  and custom = Nothing in
+  match parts with
+  | "pick" :: sha1 :: rest -> Some { command = Pick; sha1; custom; message = concat rest }
+  | "edit" :: sha1 :: rest -> Some { command = Edit; sha1; custom; message = concat rest }
+  | "reword" :: sha1 :: rest ->
+    Some { command = Reword; sha1; custom; message = concat rest }
+  | "squash" :: sha1 :: rest ->
+    Some { command = Squash; sha1; custom; message = concat rest }
+  | "drop" :: sha1 :: rest -> Some { command = Drop; sha1; custom; message = concat rest }
+  | "fixup" :: "-C" :: sha1 :: rest | "fixup" :: "-c" :: sha1 :: rest ->
+    Some { command = Fixup Keep_message; sha1; custom; message = concat rest }
+  | "fixup" :: sha1 :: rest ->
+    Some { command = Fixup Discard_message; sha1; custom; message = concat rest }
+  | "exec" :: cmd -> Some { command = Exec; sha1 = ""; custom; message = concat cmd }
+  | _ -> None
 ;;
 
 let parse_entries lines = List.filter_map parse_entry lines
@@ -430,6 +437,14 @@ module App (Info : Rebase_info_external) :
     | { message; _ } -> message
   ;;
 
+  let inline model =
+    let lines =
+      git_todo_of_rebase_entries Info.modified_files (Array.to_list model.entries)
+    in
+    let new_entries = parse_entries lines |> Array.of_list in
+    { model with mode = Navigate; entries = new_entries }
+  ;;
+
   let update model (event : Tty.ansi_event) =
     match model.mode, event with
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
@@ -445,6 +460,7 @@ module App (Info : Rebase_info_external) :
     | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
     | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
     | Cli ":q", Enter -> exit_with model
+    | Cli ":inline", Enter -> inline model, []
     | Cli ":pretty", Enter ->
       { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
     | Cli ":raw", Enter ->
