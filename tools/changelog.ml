@@ -23,8 +23,7 @@ let current_section lines =
   let rec aux acc lines =
     match acc, lines with
     | None, [] -> []
-    | None, header :: t when String.starts_with ~prefix:"## " header ->
-      aux (Some [ header ]) t
+    | None, header :: t when String.starts_with ~prefix:"## " header -> aux (Some []) t
     | None, _ :: t -> aux None t
     | Some section, header :: _
       when String.trim header |> starts_with_header_higher_than "###" -> List.rev section
