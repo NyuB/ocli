@@ -1,3 +1,11 @@
+## Current
+### Rebase
+#### Features
+- Fixup: keep the fixuped commit message and discard of the previous commit message using **F** (uppercase) to fixup, translated to `fixup -C`. **f** (lowercase) still discards the fixuped commit message and keep the previous commit message.
+#### Miscelaneous
+- Use prettier glyphs (▲▼∟ ...)
+- Display only relevant arrows (▲, ▼, or ▲▼) when moving a commit
+
 ## 0.3.0
 ### Rebase
 #### Features
