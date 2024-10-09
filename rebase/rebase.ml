@@ -1,4 +1,5 @@
 (** Application logic of a custom rebase editor *)
+open Qol
 
 type fixup_kind =
   | Discard_message
@@ -17,6 +18,20 @@ type rebase_command =
   | Reset of string
   | Merge
   | Update of string
+
+type custom_command =
+  | Rename of string
+  (** Replace the message of a commit. Differs from git [Reword] in that it will be applied without further user actions. *)
+  | Explode
+  (** Split a single commit into one commit by modified file in the original commit *)
+  | Nothing
+
+type rebase_entry =
+  { command : rebase_command
+  ; sha1 : string
+  ; message : string
+  ; custom : custom_command
+  }
 
 let is_fixup = function
   | Fixup _ -> true
@@ -38,20 +53,6 @@ let string_of_rebase_command = function
   | Merge -> "merge"
   | Update git_ref -> Printf.sprintf "update <%s>" git_ref
 ;;
-
-type custom_command =
-  | Rename of string
-  (** Replace the message of a commit. Differs from git [Reword] in that it will be applied without further user actions. *)
-  | Explode
-  (** Split a single commit into one commit by modified file in the original commit *)
-  | Nothing
-
-type rebase_entry =
-  { command : rebase_command
-  ; sha1 : string
-  ; message : string
-  ; custom : custom_command
-  }
 
 let message_of_rebase_entry entry =
   match entry.custom with
@@ -95,7 +96,9 @@ let git_todo_of_exploded_entry modified_files base sha1 =
 ;;
 
 (** [git_todo_of_rebase_entry modified_files entry] returns the git rebase command line to execute to apply [entry], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase *)
-let git_todo_of_rebase_entry modified_files { command; sha1; message; custom }
+let git_todo_of_rebase_entry
+  (modified_files : string -> string list)
+  { command; sha1; message; custom }
   : string list
   =
   let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message in
@@ -110,15 +113,12 @@ let git_todo_of_rebase_entry modified_files { command; sha1; message; custom }
 (** [git_todo_of_rebase_entries modified_files entries] returns the git rebase command line to execute to apply [entries], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase.
 
     Note that it will not necessarily return 1 line for 1 entry, since a single entry can be translated to multiple git commands, such as intermediary {b exec}s. *)
-let git_todo_of_rebase_entries modified_files (entries : rebase_entry list) : string list =
+let git_todo_of_rebase_entries
+  (modified_files : string -> string list)
+  (entries : rebase_entry list)
+  : string list
+  =
   List.concat_map (git_todo_of_rebase_entry modified_files) entries
-;;
-
-let rec sublist n l =
-  match n, l with
-  | over, res when over <= 0 -> res
-  | _, [] -> []
-  | pos, _ :: t -> sublist (pos - 1) t
 ;;
 
 let parse_entry (line : string) : rebase_entry option =
@@ -129,7 +129,7 @@ let parse_entry (line : string) : rebase_entry option =
     Some
       { command = Pick
       ; sha1 = List.nth parts 1
-      ; message = String.concat " " (sublist 2 parts)
+      ; message = String.concat " " (List.sublist 2 parts)
       ; custom = Nothing
       }
   else None
@@ -271,14 +271,6 @@ module App (Info : Rebase_info_external) :
     else String.sub s 0 max_size
   ;;
 
-  let at_most n l =
-    let rec aux acc n = function
-      | [] -> List.rev acc
-      | h :: t -> if n > 0 then aux (h :: acc) (n - 1) t else List.rev acc
-    in
-    aux [] n l
-  ;;
-
   let right_panel_view model =
     let left_width, max_width = panels_widths model in
     let files = Info.modified_files (current_sha1 model) in
@@ -288,7 +280,7 @@ module App (Info : Rebase_info_external) :
         , Tty.Default_style.default_style
         , crop_to_size max_width (" | " ^ f) ))
       files
-    |> at_most (model.dimensions.row - cli_line_count)
+    |> List.at_most (model.dimensions.row - cli_line_count)
   ;;
 
   let mapped_i_inplace f arr =
