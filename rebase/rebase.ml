@@ -204,13 +204,13 @@ module App (Info : Rebase_info_external) :
       then { base_style with bg_color = Some Tty.Cyan }
       else base_style
     in
-    let prefix = if is_fixup e.command then "   " else "" in
+    let prefix = if is_fixup e.command then " ∟ " else "" in
     let repr =
       match model.mode with
       | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
       | Move when model.cursor <> i -> prefix ^ string_of_rebase_entry e
       | Rename _ when model.cursor <> i -> prefix ^ string_of_rebase_entry e
-      | Move -> "^v " ^ string_of_rebase_entry e
+      | Move -> "▲▼ " ^ string_of_rebase_entry e
       | Rename s -> string_of_renaming_entry e s
     in
     style, repr

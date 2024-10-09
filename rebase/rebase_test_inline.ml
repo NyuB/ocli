@@ -42,7 +42,7 @@ let%expect_test "Navigate between commits" =
   [%expect
     {|
     pick: 1a 'A'
-    ^v pick: 2b 'B'
+    ▲▼ pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
@@ -50,7 +50,7 @@ let%expect_test "Navigate between commits" =
   print_render up;
   [%expect
     {|
-    ^v pick: 2b 'B'
+    ▲▼ pick: 2b 'B'
     pick: 1a 'A'
     pick: 3c 'C'
     pick: 4d 'D'
@@ -129,7 +129,7 @@ let%expect_test "Fixup" =
   [%expect
     {|
     pick: 1a 'A'
-       fixup: 2b 'B'
+     ∟ fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
@@ -138,7 +138,7 @@ let%expect_test "Fixup" =
   [%expect
     {|
     pick: 1a 'A'
-    ^v fixup: 2b 'B'
+    ▲▼ fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}]
@@ -160,7 +160,7 @@ let%expect_test "Cannot fixup root entry" =
   [%expect
     {|
     pick: 1a 'A'
-    ^v fixup: 2b 'B'
+    ▲▼ fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
@@ -170,8 +170,8 @@ let%expect_test "Cannot fixup root entry" =
   print_render try_to_move_root_after_fixup;
   [%expect
     {|
-    ^v pick: 1a 'A'
-       fixup: 2b 'B'
+    ▲▼ pick: 1a 'A'
+     ∟ fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
@@ -180,7 +180,7 @@ let%expect_test "Cannot fixup root entry" =
   [%expect
     {|
     pick: 1a 'A'
-       fixup -C: 2b 'B'
+     ∟ fixup -C: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}]
@@ -350,25 +350,25 @@ let%expect_test "Slide entry list to fit terminal rows" =
   print_render (play_events [ Down; Right ] resized);
   [%expect {|
     pick: 1a '(0)A'
-    ^v pick: 2b '(0)B'
+    ▲▼ pick: 2b '(0)B'
     pick: 3c '(0)C'
     |}];
   print_render (play_events [ Down; Down; Right ] resized);
   [%expect {|
     pick: 2b '(0)B'
-    ^v pick: 3c '(0)C'
+    ▲▼ pick: 3c '(0)C'
     pick: 4d '(0)D'
     |}];
   print_render (play_events [ Down; Down; Down; Right ] resized);
   [%expect {|
     pick: 3c '(0)C'
-    ^v pick: 4d '(0)D'
+    ▲▼ pick: 4d '(0)D'
     pick: 1a '(1)A'
     |}];
   print_render (play_events [ Down; Down; Down; Down; Down; Down; Right ] resized);
   [%expect {|
     pick: 2b '(1)B'
-    ^v pick: 3c '(1)C'
+    ▲▼ pick: 3c '(1)C'
     pick: 4d '(1)D'
     |}]
 ;;
