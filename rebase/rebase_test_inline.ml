@@ -124,7 +124,7 @@ let%expect_test "Renaming" =
 ;;
 
 let%expect_test "Fixup" =
-  let fixup_second_commit = play_events [ Down; Char 'F' ] Test_App.init in
+  let fixup_second_commit = play_events [ Down; Char 'f' ] Test_App.init in
   print_render fixup_second_commit;
   [%expect
     {|
@@ -133,7 +133,7 @@ let%expect_test "Fixup" =
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
-  let fixup_second_commit = play_events [ Down; Char 'F'; Right ] Test_App.init in
+  let fixup_second_commit = play_events [ Down; Char 'f'; Right ] Test_App.init in
   print_render fixup_second_commit;
   [%expect
     {|
@@ -145,7 +145,7 @@ let%expect_test "Fixup" =
 ;;
 
 let%expect_test "Cannot fixup root entry" =
-  let try_to_fixup_root = play_events [ Char 'F' ] Test_App.init in
+  let try_to_fixup_root = play_events [ Char 'f' ] Test_App.init in
   print_render try_to_fixup_root;
   [%expect {|
     pick: 1a 'A'
@@ -154,7 +154,7 @@ let%expect_test "Cannot fixup root entry" =
     pick: 4d 'D'
     |}];
   let try_to_move_fixup_to_root =
-    play_events [ Down; Char 'F'; Right; Up ] Test_App.init
+    play_events [ Down; Char 'f'; Right; Up ] Test_App.init
   in
   print_render try_to_move_fixup_to_root;
   [%expect
@@ -165,13 +165,22 @@ let%expect_test "Cannot fixup root entry" =
     pick: 4d 'D'
     |}];
   let try_to_move_root_after_fixup =
-    play_events [ Down; Char 'F'; Up; Right; Down ] Test_App.init
+    play_events [ Down; Char 'f'; Up; Right; Down ] Test_App.init
   in
   print_render try_to_move_root_after_fixup;
   [%expect
     {|
     ^v pick: 1a 'A'
        fixup: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let fixup_c = play_events [ Down; Char 'F' ] Test_App.init in
+  print_render fixup_c;
+  [%expect
+    {|
+    pick: 1a 'A'
+       fixup -C: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}]

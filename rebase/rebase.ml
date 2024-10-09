@@ -1,9 +1,13 @@
 (** Application logic of a custom rebase editor *)
 
+type fixup_kind =
+  | Discard_message
+  | Keep_message
+
 type rebase_command =
   | Pick
   | Edit
-  | Fixup
+  | Fixup of fixup_kind
   | Squash
   | Reword
   | Exec
@@ -14,10 +18,16 @@ type rebase_command =
   | Merge
   | Update of string
 
+let is_fixup = function
+  | Fixup _ -> true
+  | _ -> false
+;;
+
 let string_of_rebase_command = function
   | Pick -> "pick"
   | Edit -> "edit"
-  | Fixup -> "fixup"
+  | Fixup Discard_message -> "fixup"
+  | Fixup Keep_message -> "fixup -C"
   | Squash -> "squash"
   | Reword -> "reword"
   | Exec -> "exec"
@@ -194,7 +204,7 @@ module App (Info : Rebase_info_external) :
       then { base_style with bg_color = Some Tty.Cyan }
       else base_style
     in
-    let prefix = if e.command = Fixup then "   " else "" in
+    let prefix = if is_fixup e.command then "   " else "" in
     let repr =
       match model.mode with
       | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
@@ -322,7 +332,7 @@ module App (Info : Rebase_info_external) :
   let entry_at_cursor model cursor = model.entries.(cursor)
 
   let entry_at_cursor_is_fixup model cursor =
-    (entry_at_cursor model cursor).command = Fixup
+    is_fixup (entry_at_cursor model cursor).command
   ;;
 
   let move_up ({ cursor; _ } as model) =
@@ -345,7 +355,9 @@ module App (Info : Rebase_info_external) :
     { model with entries = copy }
   ;;
 
-  let set_fixup model = if model.cursor = 0 then model else set_rebase_command model Fixup
+  let set_fixup model fixup_kind =
+    if model.cursor = 0 then model else set_rebase_command model (Fixup fixup_kind)
+  ;;
 
   let set_name ({ cursor; entries; _ } as model) name =
     let current = entries.(cursor) in
@@ -405,7 +417,8 @@ module App (Info : Rebase_info_external) :
       switch_mode model Navigate, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
       set_rebase_command model Drop, []
-    | [%cross_match (Navigate, Move), (Char 'f', Char 'F')] -> set_fixup model, []
+    | [%cross_match (Navigate, Move), Char 'f'] -> set_fixup model Discard_message, []
+    | [%cross_match (Navigate, Move), Char 'F'] -> set_fixup model Keep_message, []
     | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
       set_rebase_command model Pick, []
     | [%cross_match (Navigate, Move), Char 'r'] ->

@@ -109,12 +109,22 @@ let test_fixup =
   ( "Fixup translation"
   , fun () ->
       check_string_list
-        [ "pick a A"; "fixup f F" ]
+        [ "pick a Pick_A"; "fixup f Discard"; "pick b Pick_B"; "fixup -C F Keep" ]
         (Rebase.git_todo_of_rebase_entries
            no_modified
            Rebase.
-             [ { command = Pick; message = "A"; sha1 = "a"; custom = Nothing }
-             ; { command = Fixup; message = "F"; sha1 = "f"; custom = Nothing }
+             [ { command = Pick; message = "Pick_A"; sha1 = "a"; custom = Nothing }
+             ; { command = Fixup Discard_message
+               ; message = "Discard"
+               ; sha1 = "f"
+               ; custom = Nothing
+               }
+             ; { command = Pick; message = "Pick_B"; sha1 = "b"; custom = Nothing }
+             ; { command = Fixup Keep_message
+               ; message = "Keep"
+               ; sha1 = "F"
+               ; custom = Nothing
+               }
              ]) )
 ;;
 
