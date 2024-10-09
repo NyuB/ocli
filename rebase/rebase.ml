@@ -181,7 +181,7 @@ module App (Info : Rebase_info_external) :
     | Move (** Moving a single rebase entry up & down *)
     | Rename of string
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
-    | Cli of string
+    | Cli of Editing_line.t
 
   module type Symbols = sig
     val up_arrow_prefix : string
@@ -285,17 +285,11 @@ module App (Info : Rebase_info_external) :
   let cli_line_count = 2
 
   let cli_view model =
-    let style = Tty.Default_style.default_style in
-    let content_line =
-      match model.mode with
-      | Cli s -> s
-      | _ -> ""
-    in
-    Tty.
-      [ ( { row = min model.dimensions.row (entry_count model + 2); col = 1 }
-        , style
-        , content_line )
-      ]
+    let style = Tty.Default_style.default_style
+    and row = min model.dimensions.row (entry_count model + 2) in
+    match model.mode with
+    | Cli s -> Editing_line.view style row 1 model.dimensions.col s
+    | _ -> Tty.[ { row; col = 1 }, style, Tty.text "" ]
   ;;
 
   let start_dest model =
@@ -327,7 +321,7 @@ module App (Info : Rebase_info_external) :
       (fun i f ->
         ( Tty.{ row = i + 1; col = left_width + 1 }
         , Tty.Default_style.default_style
-        , crop_to_size max_width (" | " ^ f) ))
+        , Tty.text @@ crop_to_size max_width (" | " ^ f) ))
       files
     |> List.at_most (model.dimensions.row - cli_line_count)
   ;;
@@ -343,7 +337,7 @@ module App (Info : Rebase_info_external) :
     Array.mapi
       (fun i e ->
         let style, repr = highlight_entry i e model in
-        Tty.{ row = i + 1; col = 1 }, style, crop_to_size max_width repr)
+        Tty.{ row = i + 1; col = 1 }, style, Tty.text @@ crop_to_size max_width repr)
       model.entries
     |> slice start dest
     |> mapped_i_inplace (fun i (pos, style, repr) ->
@@ -445,6 +439,17 @@ module App (Info : Rebase_info_external) :
     { model with mode = Navigate; entries = new_entries }
   ;;
 
+  let update_cli_command cmd model =
+    match cmd with
+    | ":q" -> exit_with model
+    | ":abort" -> exit_with init
+    | ":inline" -> inline model, []
+    | ":pretty" ->
+      { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
+    | ":raw" -> { model with symbols = (module Raw_symbols) } |> switch_mode Navigate, []
+    | _ -> switch_mode Navigate model, []
+  ;;
+
   let update model (event : Tty.ansi_event) =
     match model.mode, event with
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
@@ -457,17 +462,13 @@ module App (Info : Rebase_info_external) :
     | Rename name, Enter -> set_name model name, []
     | Rename s, Char c -> renaming_with model (append_char s c), []
     | Rename s, Del -> renaming_with model (del_last_char s), []
-    | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
-    | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
-    | Cli ":q", Enter -> exit_with model
-    | Cli ":abort", Enter -> exit_with init
-    | Cli ":inline", Enter -> inline model, []
-    | Cli ":pretty", Enter ->
-      { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
-    | Cli ":raw", Enter ->
-      { model with symbols = (module Raw_symbols) } |> switch_mode Navigate, []
-    | Cli _, Enter -> switch_mode Navigate model, []
-    | [%cross_match (Navigate, Move), Char ':'] -> switch_mode (Cli ":") model, []
+    | Cli s, Char c -> { model with mode = Cli (Editing_line.append_char c s) }, []
+    | Cli s, Del -> { model with mode = Cli (Editing_line.del s) }, []
+    | Cli s, Left -> { model with mode = Cli (Editing_line.left s) }, []
+    | Cli s, Right -> { model with mode = Cli (Editing_line.right s) }, []
+    | Cli s, Enter -> update_cli_command (Editing_line.to_string s) model
+    | [%cross_match (Navigate, Move), Char ':'] ->
+      switch_mode (Cli (Editing_line.init ":")) model, []
     | [%cross_match (Rename [%cross_any], Cli [%cross_any]), Esc] ->
       switch_mode Navigate model, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->

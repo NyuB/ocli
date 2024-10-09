@@ -122,10 +122,13 @@ module App : Tty.Ansi_App with type command = Tea.no_command = struct
   let view model =
     let base_row = 20 in
     if model.dim.row < base_row
-    then [ Tty.{ row = 1; col = 1 }, S.default_style, "Insufficient terminal dimensions" ]
+    then
+      Tty.
+        [ { row = 1; col = 1 }, S.default_style, Text "Insufficient terminal dimensions" ]
     else
       List.rev (lines_of_t model.boiling)
-      |> List.mapi (fun i l -> Tty.{ row = base_row - i; col = 1 }, S.default_style, l)
+      |> List.mapi (fun i l ->
+        Tty.{ row = base_row - i; col = 1 }, S.default_style, Tty.Text l)
   ;;
 
   let update model msg =

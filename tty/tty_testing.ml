@@ -12,6 +12,7 @@ end = struct
   let cols = ref 999
   let current_rendering = ref (Array.init !rows (fun _ -> Array.make !cols ' '))
   let error_records : string list ref = ref []
+  let cursor_position = ref Tty.{ row = 0; col = 0 }
 
   let set_dimensions (size : Tty.position) =
     let rows_current = !rows
@@ -64,9 +65,14 @@ end = struct
 
   let setup () = ()
 
+  let render_view_item pos = function
+    | Tty.Cursor -> cursor_position := pos
+    | Tty.Text s -> render_string_at pos s
+  ;;
+
   let render view =
     clean ();
-    List.iter (fun ((pos : Tty.position), _, s) -> render_string_at pos s) view
+    List.iter (fun ((pos : Tty.position), _, s) -> render_view_item pos s) view
   ;;
 
   let lines () =
@@ -91,16 +97,17 @@ module Tests = struct
     let init = Padd_even
 
     let padd model row line =
+      let text = Tty.text line in
       let style = Tty.Default_style.default_style in
       match model with
       | Padd_even ->
         if row mod 2 = 0
-        then Tty.{ row; col = 3 }, style, line
-        else Tty.{ row; col = 1 }, style, line
+        then Tty.{ row; col = 3 }, style, text
+        else Tty.{ row; col = 1 }, style, text
       | Padd_odd ->
         if row mod 2 = 1
-        then Tty.{ row; col = 3 }, style, line
-        else Tty.{ row; col = 1 }, style, line
+        then Tty.{ row; col = 3 }, style, text
+        else Tty.{ row; col = 1 }, style, text
     ;;
 
     let view model =

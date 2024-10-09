@@ -49,7 +49,13 @@ type style =
   ; striked : bool
   }
 
-type ansi_view_item = position * style * string
+type ansi_view_item_kind =
+  | Text of string
+  | Cursor
+
+let text s = Text s
+
+type ansi_view_item = position * style * ansi_view_item_kind
 
 module type Ansi_App =
   Tea.App with type event = ansi_event and type view = ansi_view_item list
@@ -260,13 +266,18 @@ end = struct
     Unix.tcsetattr T.terminal_in Unix.TCSANOW (default_behavior_disabled info)
   ;;
 
+  let render_item style = function
+    | Text txt -> tty_out_line (T.Style.styled style txt)
+    | Cursor -> tty_out_line (show_cursor |> List.to_seq |> String.of_seq)
+  ;;
+
   let render view =
     tty_out_chars hide_cursor;
     tty_out_chars clear_screen;
     List.iter
-      (fun (p, s, str) ->
+      (fun (p, s, item) ->
         tty_out_line (move p);
-        tty_out_line (T.Style.styled s str))
+        render_item s item)
       view;
     Out_channel.flush T.terminal_out
   ;;

@@ -86,7 +86,7 @@ module App : Tty.Ansi_App with type command = Tea.no_command = struct
   let dimension_info_line ({ row; col } : Tty.position) =
     ( Tty.{ row; col = 1 }
     , Tty.Default_style.default_style
-    , Printf.sprintf "(detected dimensions: %dx%d)" row col )
+    , Tty.text @@ Printf.sprintf "(detected dimensions: %dx%d)" row col )
   ;;
 
   let display_check_lines (pos : Tty.position) =
@@ -137,12 +137,13 @@ module App : Tty.Ansi_App with type command = Tea.no_command = struct
         ; ( Tty.Default_style.default_style
           , "Press Enter to proceed to the next phase of the demo" )
         ]
-        |> List.mapi (fun i (s, str) -> Tty.{ row = i + 1; col = 1 }, s, str))
+        |> List.mapi (fun i (s, str) -> Tty.{ row = i + 1; col = 1 }, s, Tty.text str))
   ;;
 
   let simply_lines lines =
     List.mapi
-      (fun i l -> Tty.{ row = i + 1; col = 1 }, Tty.Default_style.default_style, l)
+      (fun i l ->
+        Tty.{ row = i + 1; col = 1 }, Tty.Default_style.default_style, Tty.text l)
       lines
   ;;
 

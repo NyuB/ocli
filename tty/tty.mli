@@ -38,7 +38,13 @@ type style =
   ; striked : bool
   }
 
-type ansi_view_item = position * style * string
+type ansi_view_item_kind =
+  | Text of string
+  | Cursor
+
+val text : string -> ansi_view_item_kind
+
+type ansi_view_item = position * style * ansi_view_item_kind
 
 module type Ansi_App =
   Tea.App with type event = ansi_event and type view = ansi_view_item list

@@ -4,6 +4,11 @@
  (libraries qol tea unix))
 
 (library
+ (name editing_line)
+ (modules editing_line)
+ (libraries tty))
+
+(library
  (name tty_testing)
  (modules tty_testing)
  (libraries qol tty tea)
@@ -12,6 +17,6 @@
   (pps ppx_expect)))
 
 (tests
- (names tty_test)
- (modules tty_test)
- (libraries alcotest tty))
+ (names tty_test editing_line_test)
+ (modules tty_test editing_line_test)
+ (libraries alcotest tty editing_line))
