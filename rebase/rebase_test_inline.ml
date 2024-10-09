@@ -36,7 +36,7 @@ let print_render_app view model =
 
 let print_render = print_render_app Test_App.view
 
-let%expect_test "Navigate between commits" =
+let%expect_test "Moving commits" =
   let down_right = play_events [ Down; Right ] Test_App.init in
   print_render down_right;
   [%expect
@@ -50,7 +50,7 @@ let%expect_test "Navigate between commits" =
   print_render up;
   [%expect
     {|
-    ▲▼ pick: 2b 'B'
+     ▼ pick: 2b 'B'
     pick: 1a 'A'
     pick: 3c 'C'
     pick: 4d 'D'
@@ -62,6 +62,15 @@ let%expect_test "Navigate between commits" =
     pick: 3c 'C'
     pick: 2b 'B'
     pick: 4d 'D'
+    |}];
+  let moving_last = play_events [ Down; Down; Down; Right ] Test_App.init in
+  print_render moving_last;
+  [%expect
+    {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    ▲  pick: 4d 'D'
     |}]
 ;;
 
@@ -170,7 +179,7 @@ let%expect_test "Cannot fixup root entry" =
   print_render try_to_move_root_after_fixup;
   [%expect
     {|
-    ▲▼ pick: 1a 'A'
+     ▼ pick: 1a 'A'
      ∟ fixup: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'

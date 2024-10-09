@@ -195,6 +195,20 @@ module App (Info : Rebase_info_external) :
     Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
   ;;
 
+  let entry_count model = Array.length model.entries
+
+  let move_prefix model =
+    let is_first = model.cursor = 0
+    and is_last = model.cursor = entry_count model - 1 in
+    if is_first && is_last
+    then "   "
+    else if is_first
+    then "▼  "
+    else if is_last
+    then "▲  "
+    else "▲▼ "
+  ;;
+
   let highlight_entry i e model =
     let base_style =
       { Tty.Default_style.default_style with striked = e.command = Drop }
@@ -210,7 +224,7 @@ module App (Info : Rebase_info_external) :
       | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
       | Move when model.cursor <> i -> prefix ^ string_of_rebase_entry e
       | Rename _ when model.cursor <> i -> prefix ^ string_of_rebase_entry e
-      | Move -> "▲▼ " ^ string_of_rebase_entry e
+      | Move -> move_prefix model ^ string_of_rebase_entry e
       | Rename s -> string_of_renaming_entry e s
     in
     style, repr
@@ -232,7 +246,6 @@ module App (Info : Rebase_info_external) :
     left, right
   ;;
 
-  let entry_count model = Array.length model.entries
   let cli_line_count = 2
 
   let cli_view model =
