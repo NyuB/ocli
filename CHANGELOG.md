@@ -1,4 +1,4 @@
-## Current
+## 0.4.0
 ### Rebase
 #### Features
 - Fixup: keep the fixuped commit message and discard of the previous commit message using **F** (uppercase) to fixup, translated to `fixup -C`. **f** (lowercase) still discards the fixuped commit message and keep the previous commit message.
@@ -8,6 +8,8 @@
 - Add **:inline** command to translate the current edition to actual git output.
 #### Changes
 - Exploded entries know keep the original message to improve readability of the exploded result
+### ppx_cross_match
+- Better error messages embedded as error nodes instead of hard-failing
 
 ## 0.3.0
 ### Rebase
