@@ -61,14 +61,15 @@ let test_exploded_entries =
       in
       check_string_list
         [ "pick Target message"
-        ; "exec git reset HEAD~ && git add a.txt && git commit -m '(Exploded) a.txt' && \
-           git add b.txt && git commit -m '(Exploded) b.txt' && git add c.txt && git \
-           commit -m '(Exploded) c.txt'"
+        ; "exec git reset HEAD~ && git add a.txt && git commit -m 'a.txt (Exploded from \
+           'message')' && git add b.txt && git commit -m 'b.txt (Exploded from \
+           'message')' && git add c.txt && git commit -m 'c.txt (Exploded from \
+           'message')'"
         ]
         (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
 
-let test_exploded_entriy_no_modified =
+let test_exploded_entry_no_modified =
   ( "If  there is no modified file, no exec is generated for an exploded entry"
   , fun () ->
       let entry =
@@ -135,7 +136,7 @@ let () =
       , quick_tests
           [ test_renamed_entries
           ; test_exploded_entries
-          ; test_exploded_entriy_no_modified
+          ; test_exploded_entry_no_modified
           ; test_fixup
           ] )
     ; "Rebase file parsing", quick_tests [ test_parse_git_entry_file ]

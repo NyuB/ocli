@@ -6,6 +6,8 @@
 - Display only relevant arrows (▲, ▼, or ▲▼) when moving a commit.
 - Add **:abort** command to discard all changes and exit the program.
 - Add **:inline** command to translate the current edition to actual git output.
+#### Changes
+- Exploded entries know keep the original message to improve readability of the exploded result
 
 ## 0.3.0
 ### Rebase

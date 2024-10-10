@@ -76,38 +76,41 @@ let string_of_rebase_entry ({ command; sha1; _ } as entry) =
     (custom_info entry)
 ;;
 
-let git_todo_of_exploded_entry modified_files base sha1 =
+let git_todo_base { command; sha1; message; _ } =
+  Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message
+;;
+
+let git_todo_of_exploded_entry modified_files ({ sha1; message; _ } as entry) =
   let modified = modified_files sha1 in
   if List.is_empty modified
-  then [ base ]
+  then [ git_todo_base entry ]
   else (
     let exec_each =
       List.concat_map
         (fun f ->
           [ Printf.sprintf "git add %s" f
-          ; Printf.sprintf "git commit -m '(Exploded) %s'" f
+          ; Printf.sprintf "git commit -m '%s (Exploded from '%s')'" f message
           ])
         modified
     in
     let exec =
       Printf.sprintf "exec %s" (String.concat " && " ("git reset HEAD~" :: exec_each))
     in
-    [ base; exec ])
+    [ git_todo_base entry; exec ])
 ;;
 
 (** [git_todo_of_rebase_entry modified_files entry] returns the git rebase command line to execute to apply [entry], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase *)
 let git_todo_of_rebase_entry
   (modified_files : string -> string list)
-  { command; sha1; message; custom }
+  ({ custom; _ } as entry)
   : string list
   =
-  let base = Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message in
   match custom with
   | Rename new_name ->
     let exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" new_name in
-    [ base; exec_rename ]
-  | Explode -> git_todo_of_exploded_entry modified_files base sha1
-  | Nothing -> [ base ]
+    [ git_todo_base entry; exec_rename ]
+  | Explode -> git_todo_of_exploded_entry modified_files entry
+  | Nothing -> [ git_todo_base entry ]
 ;;
 
 (** [git_todo_of_rebase_entries modified_files entries] returns the git rebase command line to execute to apply [entries], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase.
