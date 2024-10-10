@@ -2,9 +2,10 @@
 ### Rebase
 #### Features
 - Fixup: keep the fixuped commit message and discard of the previous commit message using **F** (uppercase) to fixup, translated to `fixup -C`. **f** (lowercase) still discards the fixuped commit message and keep the previous commit message.
-#### Miscelaneous
-- Use prettier glyphs (▲▼∟ ...)
-- Display only relevant arrows (▲, ▼, or ▲▼) when moving a commit
+- Use prettier glyphs (▲▼∟ ...). Old glyphs can be toggled on with the **:raw** command, and toggled back to prettier glyphs with the **:pretty** command.
+- Display only relevant arrows (▲, ▼, or ▲▼) when moving a commit.
+- Add **:abort** command to discard all changes and exit the program.
+- Add **:inline** command to translate the current edition to actual git output.
 
 ## 0.3.0
 ### Rebase
