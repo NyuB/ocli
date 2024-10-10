@@ -183,47 +183,49 @@ module App (Info : Rebase_info_external) :
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
     | Cli of Editing_line.t
 
-  module type Symbols = sig
-    val up_arrow_prefix : string
-    val down_arrow_prefix : string
-    val up_and_down_arrow_prefix : string
-    val fixup_prefix : string
-    val panel_separator : string
-    val panel_bot_left_corner : string
-  end
+  type symbols =
+    { up_arrow_prefix : string
+    ; down_arrow_prefix : string
+    ; up_and_down_arrow_prefix : string
+    ; fixup_prefix : string
+    ; panel_separator : string
+    ; panel_bot_left_corner : string
+    }
 
   type model =
     { entries : rebase_entry array
     ; cursor : int (** The current selected entry index within [entries] *)
     ; mode : mode (** Crurrent [mode] *)
     ; dimensions : Tty.position (** Current dimensions of the display *)
-    ; symbols : (module Symbols) (** Special symbol representation *)
+    ; symbols : symbols (** Special symbol representation *)
     }
 
-  module Pretty_symbols : Symbols = struct
-    let up_arrow_prefix = "▲  "
-    let down_arrow_prefix = " ▼ "
-    let up_and_down_arrow_prefix = "▲▼ "
-    let fixup_prefix = " ∟ "
-    let panel_separator = " │ "
-    let panel_bot_left_corner = " └ "
-  end
+  let pretty_symbols : symbols =
+    { up_arrow_prefix = "▲  "
+    ; down_arrow_prefix = " ▼ "
+    ; up_and_down_arrow_prefix = "▲▼ "
+    ; fixup_prefix = " ∟ "
+    ; panel_separator = " │ "
+    ; panel_bot_left_corner = " └ "
+    }
+  ;;
 
-  module Raw_symbols : Symbols = struct
-    let up_arrow_prefix = "^  "
-    let down_arrow_prefix = " v "
-    let up_and_down_arrow_prefix = "^v "
-    let fixup_prefix = " |_"
-    let panel_separator = " | "
-    let panel_bot_left_corner = " |_"
-  end
+  let raw_symbols : symbols =
+    { up_arrow_prefix = "^  "
+    ; down_arrow_prefix = " v "
+    ; up_and_down_arrow_prefix = "^v "
+    ; fixup_prefix = " |_"
+    ; panel_separator = " | "
+    ; panel_bot_left_corner = " |_"
+    }
+  ;;
 
   let init =
     { entries = Array.of_list Info.entries
     ; cursor = 0
     ; mode = Navigate
     ; dimensions = { row = 25; col = 80 }
-    ; symbols = (module Pretty_symbols)
+    ; symbols = pretty_symbols
     }
   ;;
 
@@ -236,20 +238,17 @@ module App (Info : Rebase_info_external) :
   let move_prefix model =
     let is_first = model.cursor = 0
     and is_last = model.cursor = entry_count model - 1 in
-    let module S = (val model.symbols) in
+    let symbols = model.symbols in
     if is_first && is_last
     then "   "
     else if is_first
-    then S.down_arrow_prefix
+    then symbols.down_arrow_prefix
     else if is_last
-    then S.up_arrow_prefix
-    else S.up_and_down_arrow_prefix
+    then symbols.up_arrow_prefix
+    else symbols.up_and_down_arrow_prefix
   ;;
 
-  let fixup_prefix model =
-    let module S = (val model.symbols) in
-    S.fixup_prefix
-  ;;
+  let fixup_prefix model = model.symbols.fixup_prefix
 
   let highlight_entry (i : int) (e : rebase_entry) (model : model) : Tty.style * string =
     let base_style =
@@ -321,11 +320,11 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let right_panel_view model =
-    let module S = (val model.symbols) in
+    let symbols = model.symbols in
     let left_width, max_width = panels_widths model in
     let files =
       Info.modified_files (current_sha1 model)
-      |> List.map (fun f -> crop_to_size max_width (S.panel_separator ^ f))
+      |> List.map (fun f -> crop_to_size max_width (symbols.panel_separator ^ f))
     in
     let files_count = List.length files in
     let files_lines =
@@ -341,7 +340,7 @@ module App (Info : Rebase_info_external) :
       else
         [ ( Tty.{ row = files_count + 1; col = left_width + 1 }
           , Tty.Default_style.default_style
-          , Tty.text @@ S.panel_bot_left_corner )
+          , Tty.text @@ symbols.panel_bot_left_corner )
         ]
     in
     files_lines @ closing_line |> List.at_most (model.dimensions.row - cli_line_count)
@@ -465,9 +464,8 @@ module App (Info : Rebase_info_external) :
     | ":q" -> exit_with model
     | ":abort" -> exit_with init
     | ":inline" -> inline model, []
-    | ":pretty" ->
-      { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
-    | ":raw" -> { model with symbols = (module Raw_symbols) } |> switch_mode Navigate, []
+    | ":pretty" -> { model with symbols = pretty_symbols } |> switch_mode Navigate, []
+    | ":raw" -> { model with symbols = raw_symbols } |> switch_mode Navigate, []
     | _ -> switch_mode Navigate model, []
   ;;
 
