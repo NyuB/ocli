@@ -221,7 +221,7 @@ module App (Info : Rebase_info_external) :
     }
   ;;
 
-  let string_of_renaming_entry { command; sha1; _ } rename =
+  let string_of_renaming_entry { command; sha1; _ } (rename : string): string =
     Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
   ;;
 
@@ -245,7 +245,7 @@ module App (Info : Rebase_info_external) :
     S.fixup_prefix
   ;;
 
-  let highlight_entry i e model =
+  let highlight_entry (i : int) (e : rebase_entry) (model : model): Tty.style * string =
     let base_style =
       { Tty.Default_style.default_style with striked = e.command = Drop }
     in
