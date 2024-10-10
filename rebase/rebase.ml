@@ -188,13 +188,8 @@ module App (Info : Rebase_info_external) :
     val down_arrow_prefix : string
     val up_and_down_arrow_prefix : string
     val fixup_prefix : string
-  end
-
-  module Pretty_symbols : Symbols = struct
-    let up_arrow_prefix = "▲  "
-    let down_arrow_prefix = " ▼ "
-    let up_and_down_arrow_prefix = "▲▼ "
-    let fixup_prefix = " ∟ "
+    val panel_separator : string
+    val panel_bot_left_corner : string
   end
 
   type model =
@@ -205,11 +200,22 @@ module App (Info : Rebase_info_external) :
     ; symbols : (module Symbols) (** Special symbol representation *)
     }
 
+  module Pretty_symbols : Symbols = struct
+    let up_arrow_prefix = "▲  "
+    let down_arrow_prefix = " ▼ "
+    let up_and_down_arrow_prefix = "▲▼ "
+    let fixup_prefix = " ∟ "
+    let panel_separator = " │ "
+    let panel_bot_left_corner = " └ "
+  end
+
   module Raw_symbols : Symbols = struct
     let up_arrow_prefix = "^  "
     let down_arrow_prefix = " v "
     let up_and_down_arrow_prefix = "^v "
     let fixup_prefix = " |_"
+    let panel_separator = " | "
+    let panel_bot_left_corner = " |_"
   end
 
   let init =
@@ -221,7 +227,7 @@ module App (Info : Rebase_info_external) :
     }
   ;;
 
-  let string_of_renaming_entry { command; sha1; _ } (rename : string): string =
+  let string_of_renaming_entry { command; sha1; _ } (rename : string) : string =
     Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
   ;;
 
@@ -245,7 +251,7 @@ module App (Info : Rebase_info_external) :
     S.fixup_prefix
   ;;
 
-  let highlight_entry (i : int) (e : rebase_entry) (model : model): Tty.style * string =
+  let highlight_entry (i : int) (e : rebase_entry) (model : model) : Tty.style * string =
     let base_style =
       { Tty.Default_style.default_style with striked = e.command = Drop }
     in
@@ -315,15 +321,30 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let right_panel_view model =
+    let module S = (val model.symbols) in
     let left_width, max_width = panels_widths model in
-    let files = Info.modified_files (current_sha1 model) in
-    List.mapi
-      (fun i f ->
-        ( Tty.{ row = i + 1; col = left_width + 1 }
-        , Tty.Default_style.default_style
-        , Tty.text @@ crop_to_size max_width (" | " ^ f) ))
-      files
-    |> List.at_most (model.dimensions.row - cli_line_count)
+    let files =
+      Info.modified_files (current_sha1 model)
+      |> List.map (fun f -> crop_to_size max_width (S.panel_separator ^ f))
+    in
+    let files_count = List.length files in
+    let files_lines =
+      List.mapi
+        (fun i f ->
+          ( Tty.{ row = i + 1; col = left_width + 1 }
+          , Tty.Default_style.default_style
+          , Tty.text @@ f ))
+        files
+    and closing_line =
+      if files_count = 0
+      then []
+      else
+        [ ( Tty.{ row = files_count + 1; col = left_width + 1 }
+          , Tty.Default_style.default_style
+          , Tty.text @@ S.panel_bot_left_corner )
+        ]
+    in
+    files_lines @ closing_line |> List.at_most (model.dimensions.row - cli_line_count)
   ;;
 
   let mapped_i_inplace f arr =

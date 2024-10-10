@@ -211,9 +211,9 @@ let%expect_test "Display modified files along entries" =
   print_render A.init;
   [%expect
     {|
-    pick: 1a 'A' | a.txt
-    pick: 2b 'B' | a/
-    pick: 3c 'C'
+    pick: 1a 'A' │ a.txt
+    pick: 2b 'B' │ a/
+    pick: 3c 'C' └
     pick: 4d 'D'
     |}];
   let move_down = play_events [ Down ] A.init in
@@ -228,13 +228,14 @@ let%expect_test "Display modified files along entries" =
   print_render move_down_again;
   [%expect
     {|
-    pick: 1a 'A' | 1.c
-    pick: 2b 'B' | 2.c
-    pick: 3c 'C' | 3.c
-    pick: 4d 'D' | 4.c
-                 | 5.c
-                 | 6.c
-                 | 7.c
+    pick: 1a 'A' │ 1.c
+    pick: 2b 'B' │ 2.c
+    pick: 3c 'C' │ 3.c
+    pick: 4d 'D' │ 4.c
+                 │ 5.c
+                 │ 6.c
+                 │ 7.c
+                 └
     |}]
 ;;
 
@@ -315,16 +316,16 @@ let%expect_test "Crop commit messages and file names" =
   print_render (play_events [ Size size; Down ] A.init);
   [%expect
     {|
-    pick: 1a 'A 123456789123456789... | com/compagn...
-    pick: 2b 'B 123456789123456789...
+    pick: 1a 'A 123456789123456789... │ com/compa...
+    pick: 2b 'B 123456789123456789... └
     pick: 3c 'C 123456789123456789...
     pick: 4d 'D 123456789123456789...
     |}];
   print_render (play_events [ Size size; Down; Down ] A.init);
   [%expect
     {|
-    pick: 1a 'A 123456789123456789... | ok/ok.ml
-    pick: 2b 'B 123456789123456789...
+    pick: 1a 'A 123456789123456789... │ ok/ok.ml
+    pick: 2b 'B 123456789123456789... └
     pick: 3c 'C 123456789123456789...
     pick: 4d 'D 123456789123456789...
     |}]
@@ -398,42 +399,42 @@ let%expect_test "Crop modified list to fit terminal rows" =
   print_render resized;
   [%expect
     {|
-    pick: 1a 'A' | file_at_row_01
-    pick: 2b 'B' | file_at_row_02
-    pick: 3c 'C' | file_at_row_03
-    pick: 4d 'D' | file_at_row_04
-                 | file_at_row_05
-                 | file_at_row_06
-                 | file_at_row_07
-                 | file_at_row_08
-                 | file_at_row_09
-                 | file_at_row_10
-                 | file_at_row_11
-                 | file_at_row_12
-                 | file_at_row_13
+    pick: 1a 'A' │ file_at_row_01
+    pick: 2b 'B' │ file_at_row_02
+    pick: 3c 'C' │ file_at_row_03
+    pick: 4d 'D' │ file_at_row_04
+                 │ file_at_row_05
+                 │ file_at_row_06
+                 │ file_at_row_07
+                 │ file_at_row_08
+                 │ file_at_row_09
+                 │ file_at_row_10
+                 │ file_at_row_11
+                 │ file_at_row_12
+                 │ file_at_row_13
     |}];
   Tty_testing.Test_Platform.set_dimensions { size with row = 20 };
   let expanded = play_events [ Size { size with row = 20 } ] resized in
   print_render expanded;
   [%expect
     {|
-    pick: 1a 'A' | file_at_row_01
-    pick: 2b 'B' | file_at_row_02
-    pick: 3c 'C' | file_at_row_03
-    pick: 4d 'D' | file_at_row_04
-                 | file_at_row_05
-                 | file_at_row_06
-                 | file_at_row_07
-                 | file_at_row_08
-                 | file_at_row_09
-                 | file_at_row_10
-                 | file_at_row_11
-                 | file_at_row_12
-                 | file_at_row_13
-                 | file_at_row_14
-                 | file_at_row_15
-                 | file_at_row_16
-                 | file_at_row_17
-                 | file_at_row_18
+    pick: 1a 'A' │ file_at_row_01
+    pick: 2b 'B' │ file_at_row_02
+    pick: 3c 'C' │ file_at_row_03
+    pick: 4d 'D' │ file_at_row_04
+                 │ file_at_row_05
+                 │ file_at_row_06
+                 │ file_at_row_07
+                 │ file_at_row_08
+                 │ file_at_row_09
+                 │ file_at_row_10
+                 │ file_at_row_11
+                 │ file_at_row_12
+                 │ file_at_row_13
+                 │ file_at_row_14
+                 │ file_at_row_15
+                 │ file_at_row_16
+                 │ file_at_row_17
+                 │ file_at_row_18
     |}]
 ;;
