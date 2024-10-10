@@ -460,6 +460,7 @@ module App (Info : Rebase_info_external) :
     | Cli s, Char c -> { model with mode = Cli (append_char s c) }, []
     | Cli s, Del -> { model with mode = Cli (del_last_char s) }, []
     | Cli ":q", Enter -> exit_with model
+    | Cli ":abort", Enter -> exit_with init
     | Cli ":inline", Enter -> inline model, []
     | Cli ":pretty", Enter ->
       { model with symbols = (module Pretty_symbols) } |> switch_mode Navigate, []
