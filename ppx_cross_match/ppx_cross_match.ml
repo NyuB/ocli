@@ -17,7 +17,12 @@ let variant_pat_of_construct_expr ~loc pat_of_expr label =
   | None -> ppat_construct ~loc label None
 ;;
 
-let rec pattern_of_expr (e : expression) =
+let allowed_error_message =
+  "Only constants, identifiers, constructor applications, tuples and '[%%cross_any]' \
+   extension nodes are allowed"
+;;
+
+let rec pattern_of_expr (e : expression) : pattern =
   let open Ast_builder.Default in
   let loc = e.pexp_loc in
   match e.pexp_desc with
@@ -28,7 +33,35 @@ let rec pattern_of_expr (e : expression) =
   | Pexp_construct (label, e) ->
     variant_pat_of_construct_expr ~loc pattern_of_expr label e
   | Pexp_tuple es -> ppat_tuple ~loc (List.map pattern_of_expr es)
-  | _ -> failwith "Can only expand constant patterns, use [%cross_any] to match any value"
+  | Pexp_record _ ->
+    ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Record are not allowed within a cross_match pattern. %s"
+         allowed_error_message)
+  | Pexp_constraint _ ->
+    ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Module expression are not allowed within a cross_match pattern. %s"
+         allowed_error_message)
+  | Pexp_extension (e, _) ->
+    ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Extension nodes [%%%s] are not allowed within a cross_match pattern. %s"
+         e.txt
+         allowed_error_message)
+  | _ ->
+    ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Invalid cross_match pattern. %s"
+         allowed_error_message)
 ;;
 
 let patterns_of_expr (e : expression) =
