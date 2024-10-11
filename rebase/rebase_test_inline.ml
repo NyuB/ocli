@@ -308,26 +308,26 @@ let%expect_test "Crop commit messages and file names" =
   print_render (play_events [ Size size ] A.init);
   [%expect
     {|
-    pick: 1a 'A 123456789123456789123456789'
-    pick: 2b 'B 123456789123456789123456789'
-    pick: 3c 'C 123456789123456789123456789'
-    pick: 4d 'D 123456789123456789123456789'
+    pick: 1a 'A 123456789123456789...
+    pick: 2b 'B 123456789123456789...
+    pick: 3c 'C 123456789123456789...
+    pick: 4d 'D 123456789123456789...
     |}];
   print_render (play_events [ Size size; Down ] A.init);
   [%expect
     {|
-    pick: 1a 'A 123456789123456789123456789' │ co...
-    pick: 2b 'B 123456789123456789123456789' └
-    pick: 3c 'C 123456789123456789123456789'
-    pick: 4d 'D 123456789123456789123456789'
+    pick: 1a 'A 123456789123456789... │ com/comp...
+    pick: 2b 'B 123456789123456789... └
+    pick: 3c 'C 123456789123456789...
+    pick: 4d 'D 123456789123456789...
     |}];
   print_render (play_events [ Size size; Down; Down ] A.init);
   [%expect
     {|
-    pick: 1a 'A 123456789123456789123456789' │ ok...
-    pick: 2b 'B 123456789123456789123456789' └
-    pick: 3c 'C 123456789123456789123456789'
-    pick: 4d 'D 123456789123456789123456789'
+    pick: 1a 'A 123456789123456789... │ ok/ok.ml
+    pick: 2b 'B 123456789123456789... └
+    pick: 3c 'C 123456789123456789...
+    pick: 4d 'D 123456789123456789...
     |}]
 ;;
 

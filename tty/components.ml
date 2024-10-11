@@ -77,6 +77,37 @@ module Row (M : Merge_views) = struct
   ;;
 end
 
+module Row_divided (M : Merge_views) = struct
+  type 'view fraction_component = 'view component * int
+
+  let make (components : 'view fraction_component list) : 'view component =
+    fun constraints ->
+    let total = List.fold_left (fun n (_, f) -> n + f) 0 components in
+    let v, col, max_height =
+      List.fold_left
+        (fun (v, col, max_height) (component, fraction) ->
+          let available = constraints.width * fraction / total in
+          let component_view, { height; width; _ } =
+            component
+              { col_start = col
+              ; row_start = constraints.row_start
+              ; width = available
+              ; height = constraints.height
+              }
+          in
+          M.merge v component_view, col + width, max max_height height)
+        (M.empty, constraints.col_start, 0)
+        components
+    in
+    ( v
+    , { col_start = constraints.col_start
+      ; row_start = constraints.row_start
+      ; height = max_height
+      ; width = col - constraints.col_start
+      } )
+  ;;
+end
+
 module Column (M : Merge_views) = struct
   let shift_constraints constraints component_rendering =
     { constraints with

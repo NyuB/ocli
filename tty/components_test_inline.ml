@@ -19,9 +19,10 @@ let default_styled component =
 ;;
 
 module Row = Components.Row (Components.Merge_ansi_views)
+module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
 module Col = Components.Column (Components.Merge_ansi_views)
 
-let%expect_test _ =
+let%expect_test "Row and column components" =
   let line_a = Components.Text_line.component "AAA" |> default_styled
   and line_b = Components.Text_line.component "BBB" |> default_styled in
   print_render_to_left line_a;
@@ -66,4 +67,22 @@ let%expect_test _ =
     BBB
     AAAAAAAAA
     |}]
+;;
+
+let%expect_test "Divided row" =
+  let only_nine_width =
+    Components.{ col_start = 1; row_start = 1; width = 9; height = 1 }
+  in
+  let print_render component = print_render @@ view component only_nine_width in
+  let line_a = Components.Text_line.component "AAA" |> default_styled
+  and line_b = Components.Text_line.component "BBB" |> default_styled
+  and line_c = Components.Text_line.component "CCC" |> default_styled in
+  print_render @@ Row_divided.make [ line_a, 1; line_b, 1; line_c, 1 ];
+  [%expect {| AAABBBCCC |}];
+  print_render @@ Row_divided.make [ line_a, 1; line_b, 3; line_c, 3 ];
+  [%expect {| ABBBCCC |}];
+  print_render @@ Row_divided.make [ line_a, 3; line_b, 1; line_c, 3 ];
+  [%expect {| AAABCCC |}];
+  print_render @@ Row_divided.make [ line_a, 3; line_b, 3; line_c, 1 ];
+  [%expect {| AAABBBC |}]
 ;;
