@@ -1,7 +1,7 @@
 (library
  (name rebase)
  (modules rebase)
- (libraries editing_line qol tea tty)
+ (libraries components editing_line qol tea tty)
  (preprocess
   (pps ppx_cross_match)))
 

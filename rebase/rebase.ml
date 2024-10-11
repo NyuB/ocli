@@ -274,22 +274,8 @@ module App (Info : Rebase_info_external) :
     style, repr
   ;;
 
-  let max_or_zero ~by l = Array.fold_left (fun acc item -> max acc (by item)) 0 l
   let current_entry model = model.entries.(model.cursor)
   let current_sha1 model = (current_entry model).sha1
-
-  let max_entry_full_length ({ entries; _ } as model) =
-    Array.mapi (fun i e -> highlight_entry i e model) entries
-    |> max_or_zero ~by:(fun (_, s) -> String.length s)
-  ;;
-
-  let panels_widths model =
-    (* 2/3 for left panel and 1/3 for right panel *)
-    let left = min (model.dimensions.col * 2 / 3) (max_entry_full_length model) in
-    let right = model.dimensions.col - left in
-    left, right
-  ;;
-
   let cli_line_count = 2
 
   let cli_view model =
@@ -314,62 +300,57 @@ module App (Info : Rebase_info_external) :
 
   let slice start dest arr = Array.init (dest - start + 1) (fun i -> arr.(i + start))
 
-  let crop_to_size max_size s =
-    if String.length s <= max_size
-    then s
-    else if max_size >= 3
-    then String.sub s 0 (max_size - 3) ^ "..."
-    else String.sub s 0 max_size
+  module Column = Components.Column (Components.Merge_ansi_views)
+  module Row = Components.Row (Components.Merge_ansi_views)
+
+  let panel_separator model =
+    let files = Info.modified_files (current_sha1 model) in
+    let files_count = List.length files in
+    let symbols = model.symbols in
+    if files_count = 0
+    then Column.make []
+    else
+      List.init files_count (fun _ -> symbols.panel_separator)
+      @ [ symbols.panel_bot_left_corner ]
+      |> List.map (fun l ->
+        Components.Text_line.component l
+        |> Components.to_ansi_view_component Tty.Default_style.default_style)
+      |> Column.make
   ;;
 
   let right_panel_view model =
-    let symbols = model.symbols in
-    let left_width, max_width = panels_widths model in
-    let files =
-      Info.modified_files (current_sha1 model)
-      |> List.map (fun f -> crop_to_size max_width (symbols.panel_separator ^ f))
-    in
-    let files_count = List.length files in
-    let files_lines =
-      List.mapi
-        (fun i f ->
-          ( Tty.{ row = i + 1; col = left_width + 1 }
-          , Tty.Default_style.default_style
-          , Tty.text @@ f ))
-        files
-    and closing_line =
-      if files_count = 0
-      then []
-      else
-        [ ( Tty.{ row = files_count + 1; col = left_width + 1 }
-          , Tty.Default_style.default_style
-          , Tty.text @@ symbols.panel_bot_left_corner )
-        ]
-    in
-    files_lines @ closing_line |> List.at_most (model.dimensions.row - cli_line_count)
-  ;;
-
-  let mapped_i_inplace f arr =
-    Array.mapi_inplace f arr;
-    arr
+    Info.modified_files (current_sha1 model)
+    |> List.map Components.Text_line.component
+    |> List.map (Components.to_ansi_view_component Tty.Default_style.default_style)
+    |> Column.make
   ;;
 
   let left_panel_view model =
-    let max_width, _ = panels_widths model
-    and start, dest = start_dest model in
+    let start, dest = start_dest model in
     Array.mapi
       (fun i e ->
         let style, repr = highlight_entry i e model in
-        Tty.{ row = i + 1; col = 1 }, style, Tty.text @@ crop_to_size max_width repr)
+        Components.Text_line.component repr |> Components.to_ansi_view_component style)
       model.entries
     |> slice start dest
-    |> mapped_i_inplace (fun i (pos, style, repr) ->
-      Tty.{ pos with row = i + 1 }, style, repr)
     |> Array.to_list
+    |> Column.make
   ;;
 
   let view model : Tty.ansi_view_item list =
-    left_panel_view model @ right_panel_view model @ cli_view model
+    let constraints =
+      Components.
+        { col_start = 1
+        ; row_start = 1
+        ; width = model.dimensions.col
+        ; height = model.dimensions.row - cli_line_count
+        }
+    in
+    let left_right_panel =
+      Row.make [ left_panel_view model; panel_separator model; right_panel_view model ]
+    in
+    let panels_view, _ = left_right_panel constraints in
+    panels_view @ cli_view model
   ;;
 
   let swap arr a b =
