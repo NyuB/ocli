@@ -4,6 +4,19 @@
  (libraries qol tea unix))
 
 (library
+ (name components)
+ (modules components)
+ (libraries tty))
+
+(library
+ (name components_test_inline)
+ (modules components_test_inline)
+ (libraries components tty tty_testing)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
+
+(library
  (name editing_line)
  (modules editing_line)
  (libraries tty))
