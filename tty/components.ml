@@ -174,6 +174,7 @@ module Editing_line = struct
     | Right
 
   let update ({ s; cursor } as t) (e : event) : t =
+    let len = String.length s in
     match e with
     | Del ->
       if cursor = 0
@@ -181,23 +182,18 @@ module Editing_line = struct
       else (
         let deleted = cursor - 1 in
         let left = String.sub s 0 deleted in
-        let right_from = cursor
-        and len = String.length s in
+        let right_from = cursor in
         if right_from = len
         then { s = left; cursor = cursor - 1 }
         else (
-          let right = String.sub s right_from (String.length s - right_from) in
+          let right = String.sub s right_from (len - right_from) in
           { s = left ^ right; cursor = cursor - 1 }))
     | Char c ->
       let left = String.sub s 0 cursor
-      and right =
-        if String.length s = cursor
-        then ""
-        else String.sub s cursor (String.length s - cursor)
-      in
+      and right = if len = cursor then "" else String.sub s cursor (len - cursor) in
       { s = Printf.sprintf "%s%c%s" left c right; cursor = cursor + 1 }
     | Left -> { t with cursor = max 0 (cursor - 1) }
-    | Right -> { t with cursor = min (String.length s) (cursor + 1) }
+    | Right -> { t with cursor = min len (cursor + 1) }
   ;;
 
   let append_char c t = update t (Char c)
