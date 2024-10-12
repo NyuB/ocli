@@ -328,6 +328,16 @@ let%expect_test "Crop commit messages, CLI and file names" =
     pick: 3c 'C 123456789123456789...
     pick: 4d 'D 123456789123456789...
     |}];
+  Tty_testing.print_render_and_cursor_app
+    A.view
+    (play_events [ Size size; Down; Char 'r'; Char 'Z' ] A.init);
+  [%expect
+    {|
+    pick: 1a 'A 123456789123456789... │ com/comp...
+    pick: 2b '789123456789123456789Z_ └
+    pick: 3c 'C 123456789123456789...
+    pick: 4d 'D 123456789123456789...
+    |}];
   print_render (play_events [ Size size; Down ] A.init);
   [%expect
     {|

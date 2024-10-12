@@ -261,24 +261,33 @@ end = struct
   let tty_out_chars = send_chars T.terminal_out
   and tty_out_line s = send_string T.terminal_out s
 
+  let show_cursor_if_present = function
+    | Some pos ->
+      tty_out_line (move pos);
+      tty_out_line (show_cursor |> List.to_seq |> String.of_seq)
+    | None -> ()
+  ;;
+
   let setup () =
     let info = Unix.tcgetattr T.terminal_in in
     Unix.tcsetattr T.terminal_in Unix.TCSANOW (default_behavior_disabled info)
   ;;
 
-  let render_item style = function
+  let render_item style position final_cursor_position = function
     | Text txt -> tty_out_line (T.Style.styled style txt)
-    | Cursor -> tty_out_line (show_cursor |> List.to_seq |> String.of_seq)
+    | Cursor -> final_cursor_position := Some position
   ;;
 
   let render view =
     tty_out_chars hide_cursor;
     tty_out_chars clear_screen;
+    let cursor_position = ref None in
     List.iter
       (fun (p, s, item) ->
         tty_out_line (move p);
-        render_item s item)
+        render_item s p cursor_position item)
       view;
+    show_cursor_if_present !cursor_position;
     Out_channel.flush T.terminal_out
   ;;
 
