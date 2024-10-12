@@ -1,4 +1,5 @@
 let print_render view = Tty_testing.print_render_app Fun.id view
+let print_render_and_cursor view = Tty_testing.print_render_and_cursor_app Fun.id view
 
 let top_left_constraint =
   Components.{ row_start = 1; col_start = 1; width = 100; height = 100 }
@@ -82,4 +83,42 @@ let%expect_test "Divided row" =
   [%expect {| AAABCCC |}];
   print_render @@ Row_divided.make [ line_a, 3; line_b, 3; line_c, 1 ];
   [%expect {| AAABBBC |}]
+;;
+
+let play_events editing events =
+  List.fold_left Components.Editing_line.update editing events
+;;
+
+let%expect_test "Editing line" =
+  let only_nine_width =
+    Components.{ col_start = 1; row_start = 1; width = 9; height = 1 }
+  in
+  let print_render line =
+    let component =
+      Components.Editing_line.make line
+      |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
+    in
+    print_render_and_cursor @@ view component only_nine_width
+  in
+  let chars s =
+    String.to_seq s |> Seq.map (fun c -> Components.Editing_line.Char c) |> List.of_seq
+  in
+  let editing = Components.Editing_line.init "" in
+  print_render editing;
+  [%expect {| _ |}];
+  let typed = play_events editing (chars "abc") in
+  print_render typed;
+  [%expect {| abc_ |}];
+  let del = play_events typed [ Del ] in
+  print_render del;
+  [%expect {| ab_ |}];
+  let left_left = play_events typed [ Left; Left ] in
+  print_render left_left;
+  [%expect {| a_c |}];
+  let cropped = play_events editing (chars "123456789a") in
+  print_render cropped;
+  [%expect {| 3456789a_ |}];
+  let cropped_left = play_events cropped [ Left; Left ] in
+  print_render cropped_left;
+  [%expect {| 2345678_a |}]
 ;;

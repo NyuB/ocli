@@ -209,6 +209,32 @@ module Editing_line = struct
   let to_string t = t.s
   let edition_index t = t.cursor
 
+  let around_cursor ~width ~cursor ~len =
+    if cursor = len
+    then cursor - (width - 1), cursor
+    else if width = 1
+    then cursor, cursor
+    else (
+      let left = ref cursor
+      and right = ref (cursor + 1)
+      and available = ref (width - 1) in
+      let updated = ref true in
+      while !available > 0 && !updated do
+        updated := false;
+        if !left > 0
+        then (
+          left := !left - 1;
+          available := !available - 1;
+          updated := true);
+        if !available > 0 && !right < len
+        then (
+          right := !right + 1;
+          available := !available - 1;
+          updated := true)
+      done;
+      !left, !right)
+  ;;
+
   let make { s; cursor } { col_start; width; row_start; height } =
     if height <= 0 || width <= 0
     then [], { row_start; col_start; width = 0; height = 0 }
@@ -221,11 +247,11 @@ module Editing_line = struct
           ]
         , { row_start; col_start; height = 1; width = max len (cursor + 1) } )
       else (
-        let left = width / 2 in
-        let left_start = max 0 (cursor - left) in
-        let cropped = String.sub s left_start width in
+        let left, right = around_cursor ~width ~cursor ~len in
+        let size = right - left in
+        let cropped = String.sub s left size in
         ( [ Tty.{ row = row_start; col = col_start }, Tty.text @@ cropped
-          ; Tty.{ row = row_start; col = cursor - left_start + 1 }, Tty.Cursor
+          ; Tty.{ row = row_start; col = col_start + cursor - left }, Tty.Cursor
           ]
         , { row_start; col_start; height = 1; width } )))
   ;;

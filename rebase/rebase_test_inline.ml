@@ -286,7 +286,7 @@ let%expect_test "CLI mode" =
     |}]
 ;;
 
-let%expect_test "Crop commit messages and file names" =
+let%expect_test "Crop commit messages, CLI and file names" =
   let module I = struct
     include Test_Info
 
@@ -334,7 +334,18 @@ let%expect_test "Crop commit messages and file names" =
     pick: 2b 'B 123456789123456789... └
     pick: 3c 'C 123456789123456789...
     pick: 4d 'D 123456789123456789...
-    |}]
+    |}];
+  Tty_testing.print_render_and_cursor_app A.view
+  @@ play_events (Tty.[ Size size; Char ':' ] @ chars (String.make 52 'a')) A.init;
+  [%expect
+    {|
+      pick: 1a 'A 123456789123456789...
+      pick: 2b 'B 123456789123456789...
+      pick: 3c 'C 123456789123456789...
+      pick: 4d 'D 123456789123456789...
+
+      aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_
+      |}]
 ;;
 
 let%expect_test "Slide entry list to fit terminal rows" =
