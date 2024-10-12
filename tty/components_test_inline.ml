@@ -1,7 +1,4 @@
-let print_render view =
-  Tty_testing.Test_Platform.render view;
-  List.iter print_endline (Tty_testing.Test_Platform.lines ())
-;;
+let print_render view = Tty_testing.print_render_app Fun.id view
 
 let top_left_constraint =
   Components.{ row_start = 1; col_start = 1; width = 100; height = 100 }

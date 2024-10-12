@@ -103,6 +103,17 @@ end = struct
   let handle_commands _ = ()
 end
 
+let print_render_app view model =
+  Test_Platform.render @@ view model;
+  List.iter print_endline (Test_Platform.lines ())
+;;
+
+let print_render_and_cursor_app view model =
+  Test_Platform.render @@ view model;
+  Test_Platform.highlight_cursor ();
+  List.iter print_endline (Test_Platform.lines ())
+;;
+
 module Tests = struct
   module Test_App : Tty.Ansi_App with type command = Tea.no_command = struct
     include Tty.Ansi_Tea_Base

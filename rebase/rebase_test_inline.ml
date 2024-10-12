@@ -28,21 +28,8 @@ let play_events_app update events model =
 ;;
 
 let play_events = play_events_app Test_App.update
-
-let print_render_app view model =
-  Tty_testing.Test_Platform.render @@ view model;
-  List.iter print_endline (Tty_testing.Test_Platform.lines ())
-;;
-
-let print_render = print_render_app Test_App.view
-
-let print_render_and_cursor_app view model =
-  Tty_testing.Test_Platform.render @@ view model;
-  Tty_testing.Test_Platform.highlight_cursor ();
-  List.iter print_endline (Tty_testing.Test_Platform.lines ())
-;;
-
-let print_render_and_cursor = print_render_and_cursor_app Test_App.view
+let print_render = Tty_testing.print_render_app Test_App.view
+let print_render_and_cursor = Tty_testing.print_render_and_cursor_app Test_App.view
 
 let%expect_test "Moving commits" =
   let down_right = play_events [ Down; Right ] Test_App.init in
@@ -214,7 +201,7 @@ let%expect_test "Display modified files along entries" =
     end)
   in
   let module A = App (Info) in
-  let print_render = print_render_app A.view
+  let print_render = Tty_testing.print_render_app A.view
   and play_events = play_events_app A.update in
   print_render A.init;
   [%expect
@@ -272,7 +259,8 @@ let%expect_test "CLI mode" =
     |}];
   let navigate = play_events [ Left; Left; Del ] typing_command in
   print_render_and_cursor navigate;
-  [%expect {|
+  [%expect
+    {|
     pick: 1a 'A'
     pick: 2b 'B'
     pick: 3c 'C'
@@ -319,7 +307,7 @@ let%expect_test "Crop commit messages and file names" =
   end
   in
   let module A = App (I) in
-  let print_render = print_render_app A.view
+  let print_render = Tty_testing.print_render_app A.view
   and play_events = play_events_app A.update in
   let size = Tty.{ col = 50; row = 999 } in
   Tty_testing.Test_Platform.set_dimensions size;
@@ -365,7 +353,7 @@ let%expect_test "Slide entry list to fit terminal rows" =
   let module A = App (I) in
   let size = Tty.{ row = 5; col = 80 } in
   Tty_testing.Test_Platform.set_dimensions size;
-  let print_render = print_render_app A.view
+  let print_render = Tty_testing.print_render_app A.view
   and play_events = play_events_app A.update in
   let resized = play_events [ Size size ] A.init in
   print_render resized;
@@ -409,7 +397,7 @@ let%expect_test "Crop modified list to fit terminal rows" =
     end)
   in
   let module A = App (Info) in
-  let print_render = print_render_app A.view
+  let print_render = Tty_testing.print_render_app A.view
   and play_events = play_events_app A.update in
   let size = Tty.{ col = 999; row = 15 } in
   Tty_testing.Test_Platform.set_dimensions size;
