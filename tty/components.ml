@@ -149,7 +149,9 @@ module Text_line = struct
     then s
     else if max_size >= 3
     then String.sub s 0 (max_size - 3) ^ "..."
-    else String.sub s 0 max_size
+    else if max_size >= 0
+    then String.sub s 0 max_size
+    else ""
   ;;
 
   let component line ({ width; height; _ } as constraints) =
