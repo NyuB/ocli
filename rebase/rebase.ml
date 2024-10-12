@@ -265,10 +265,10 @@ module App (Info : Rebase_info_external) :
       |> Components.Text_line.component
       |> Components.to_ansi_view_component style
     and editing_component =
-      Editing_line.make editing
+      Editing_line.component editing
       |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
     in
-    Row.make [ left; editing_component; right ]
+    Row.component [ left; editing_component; right ]
   ;;
 
   let highlight_entry (i : int) (e : rebase_entry) (model : model)
@@ -306,7 +306,8 @@ module App (Info : Rebase_info_external) :
   let cli_view model : Tty.ansi_view_item list Components.component =
     let style = Tty.Default_style.default_style in
     match model.mode with
-    | Cli s -> Editing_line.make s |> Components.positioned_to_ansi_view_component style
+    | Cli s ->
+      Editing_line.component s |> Components.positioned_to_ansi_view_component style
     | _ -> Components.Text_line.component "" |> Components.to_ansi_view_component style
   ;;
 
@@ -334,21 +335,21 @@ module App (Info : Rebase_info_external) :
     let files_count = List.length files in
     let symbols = model.symbols in
     if files_count = 0
-    then Column.make []
+    then Column.component []
     else
       List.init files_count (fun _ -> symbols.panel_separator)
       @ [ symbols.panel_bot_left_corner ]
       |> List.map (fun l ->
         Components.Text_line.component l
         |> Components.to_ansi_view_component Tty.Default_style.default_style)
-      |> Column.make
+      |> Column.component
   ;;
 
   let right_panel_view model =
     Info.modified_files (current_sha1 model)
     |> List.map Components.Text_line.component
     |> List.map (Components.to_ansi_view_component Tty.Default_style.default_style)
-    |> Column.make
+    |> Column.component
   ;;
 
   let left_panel_view model =
@@ -356,7 +357,7 @@ module App (Info : Rebase_info_external) :
     Array.mapi (fun i e -> highlight_entry i e model) model.entries
     |> slice start dest
     |> Array.to_list
-    |> Column.make
+    |> Column.component
   ;;
 
   let view model : Tty.ansi_view_item list =
@@ -369,10 +370,12 @@ module App (Info : Rebase_info_external) :
         }
     in
     let left_right_panel =
-      Row_divided.make
+      Row_divided.component
         [ left_panel_view model, 6; panel_separator model, 1; right_panel_view model, 2 ]
     in
-    let full_screen = Column.make [ left_right_panel; cli_separator; cli_view model ] in
+    let full_screen =
+      Column.component [ left_right_panel; cli_separator; cli_view model ]
+    in
     let v, _ = full_screen constraints in
     v
   ;;

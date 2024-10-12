@@ -67,7 +67,7 @@ let test_style = Tty.Default_style.default_style
 
 let view row_start col_start width t =
   let component =
-    Editing_line.make t |> Components.positioned_to_ansi_view_component test_style
+    Editing_line.component t |> Components.positioned_to_ansi_view_component test_style
   in
   let v, _ = component { row_start; col_start; height = 1; width } in
   v
@@ -147,8 +147,8 @@ let test_view_partial_left =
 
 let () =
   Alcotest.run
-    "Editing line"
-    [ ( "Model"
+    "Components"
+    [ ( "Editing line (model)"
       , quick_tests
           [ test_empty_type_chars
           ; test_del_from_empty
@@ -157,6 +157,7 @@ let () =
           ; test_left_char_after_three_chars
           ; test_right_then_char_after_three_chars
           ] )
-    ; "View", quick_tests [ test_view_full; test_view_partial; test_view_partial_left ]
+    ; ( "Editing line (view)"
+      , quick_tests [ test_view_full; test_view_partial; test_view_partial_left ] )
     ]
 ;;

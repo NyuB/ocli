@@ -79,7 +79,7 @@ module Row (M : Merge_views) = struct
     , max max_height actual_item_constraints.height )
   ;;
 
-  let make (components : 'view component list) : 'view component =
+  let component (components : 'view component list) : 'view component =
     fun ({ width; _ } as constraints) ->
     let v, { width = remaining_width; _ }, max_height =
       List.fold_left add_column (M.empty, constraints, 0) components
@@ -91,7 +91,7 @@ end
 module Row_divided (M : Merge_views) = struct
   type 'view fraction_component = 'view component * int
 
-  let make (components : 'view fraction_component list) : 'view component =
+  let component (components : 'view fraction_component list) : 'view component =
     fun constraints ->
     let total = List.fold_left (fun n (_, f) -> n + f) 0 components in
     let v, col, max_height =
@@ -134,7 +134,7 @@ module Column (M : Merge_views) = struct
     , max max_width actual_item_constraints.width )
   ;;
 
-  let make (components : 'view component list) : 'view component =
+  let component (components : 'view component list) : 'view component =
     fun ({ height; _ } as constraints) ->
     let v, { height = remaining_height; _ }, max_width =
       List.fold_left add_row (M.empty, constraints, 0) components
@@ -231,7 +231,7 @@ module Editing_line = struct
       !left, !right)
   ;;
 
-  let make { s; cursor } { col_start; width; row_start; height } =
+  let component { s; cursor } { col_start; width; row_start; height } =
     if height <= 0 || width <= 0
     then [], { row_start; col_start; width = 0; height = 0 }
     else (

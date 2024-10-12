@@ -25,20 +25,20 @@ let%expect_test "Row and column components" =
   and line_b = Components.Text_line.component "BBB" |> default_styled in
   print_render_to_left line_a;
   [%expect {| AAA |}];
-  let row = [ line_a; line_a; line_a ] |> Row.make in
+  let row = [ line_a; line_a; line_a ] |> Row.component in
   print_render_to_left row;
   [%expect {| AAAAAAAAA |}];
-  let column = [ line_b; line_b; line_b ] |> Col.make in
+  let column = [ line_b; line_b; line_b ] |> Col.component in
   print_render_to_left column;
   [%expect {|
     BBB
     BBB
     BBB
     |}];
-  let row_of_row_col = Row.make [ row; column ]
-  and row_of_col_row = Row.make [ column; row ]
-  and col_of_row_col = Col.make [ row; column ]
-  and col_of_col_row = Col.make [ column; row ] in
+  let row_of_row_col = Row.component [ row; column ]
+  and row_of_col_row = Row.component [ column; row ]
+  and col_of_row_col = Col.component [ row; column ]
+  and col_of_col_row = Col.component [ column; row ] in
   print_render_to_left row_of_row_col;
   [%expect {|
     AAAAAAAAABBB
@@ -75,13 +75,13 @@ let%expect_test "Divided row" =
   let line_a = Components.Text_line.component "AAA" |> default_styled
   and line_b = Components.Text_line.component "BBB" |> default_styled
   and line_c = Components.Text_line.component "CCC" |> default_styled in
-  print_render @@ Row_divided.make [ line_a, 1; line_b, 1; line_c, 1 ];
+  print_render @@ Row_divided.component [ line_a, 1; line_b, 1; line_c, 1 ];
   [%expect {| AAABBBCCC |}];
-  print_render @@ Row_divided.make [ line_a, 1; line_b, 3; line_c, 3 ];
+  print_render @@ Row_divided.component [ line_a, 1; line_b, 3; line_c, 3 ];
   [%expect {| ABBBCCC |}];
-  print_render @@ Row_divided.make [ line_a, 3; line_b, 1; line_c, 3 ];
+  print_render @@ Row_divided.component [ line_a, 3; line_b, 1; line_c, 3 ];
   [%expect {| AAABCCC |}];
-  print_render @@ Row_divided.make [ line_a, 3; line_b, 3; line_c, 1 ];
+  print_render @@ Row_divided.component [ line_a, 3; line_b, 3; line_c, 1 ];
   [%expect {| AAABBBC |}]
 ;;
 
@@ -95,7 +95,7 @@ let%expect_test "Editing line" =
   in
   let print_render line =
     let component =
-      Components.Editing_line.make line
+      Components.Editing_line.component line
       |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
     in
     print_render_and_cursor @@ view component only_nine_width
