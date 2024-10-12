@@ -258,7 +258,9 @@ module App (Info : Rebase_info_external) :
 
   let fixup_prefix model = model.symbols.fixup_prefix
 
-  let highlight_entry (i : int) (e : rebase_entry) (model : model) : Tty.style * string =
+  let highlight_entry (i : int) (e : rebase_entry) (model : model)
+    : Tty.ansi_view_item list Components.component
+    =
     let base_style =
       { Tty.Default_style.default_style with striked = e.command = Drop }
     in
@@ -270,13 +272,17 @@ module App (Info : Rebase_info_external) :
     let prefix = if is_fixup e.command then fixup_prefix model else "" in
     let repr =
       match model.mode with
-      | Navigate | Cli _ -> prefix ^ string_of_rebase_entry e
-      | Move when model.cursor <> i -> prefix ^ string_of_rebase_entry e
-      | Rename _ when model.cursor <> i -> prefix ^ string_of_rebase_entry e
-      | Move -> move_prefix model ^ string_of_rebase_entry e
-      | Rename s -> string_of_renaming_entry e s
+      | Navigate | Cli _ ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      | Move when model.cursor <> i ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      | Rename _ when model.cursor <> i ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      | Move ->
+        Components.Text_line.component (move_prefix model ^ string_of_rebase_entry e)
+      | Rename s -> Components.Text_line.component (string_of_renaming_entry e s)
     in
-    style, repr
+    Components.to_ansi_view_component style repr
   ;;
 
   let current_entry model = model.entries.(model.cursor)
@@ -333,11 +339,7 @@ module App (Info : Rebase_info_external) :
 
   let left_panel_view model =
     let start, dest = start_dest model in
-    Array.mapi
-      (fun i e ->
-        let style, repr = highlight_entry i e model in
-        Components.Text_line.component repr |> Components.to_ansi_view_component style)
-      model.entries
+    Array.mapi (fun i e -> highlight_entry i e model) model.entries
     |> slice start dest
     |> Array.to_list
     |> Column.make
