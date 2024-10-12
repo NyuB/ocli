@@ -73,19 +73,19 @@ let chars s = s |> String.to_seq |> Seq.map (fun c -> Tty.Char c) |> List.of_seq
 
 let%expect_test "Renaming" =
   let renaming = play_events [ Char 'r' ] Test_App.init in
-  print_render renaming;
+  print_render_and_cursor renaming;
   [%expect
     {|
-    pick: 1a 'A'(renaming)
+    pick: 1a 'A_'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
   let type_letters = play_events (chars "wesome Message!") renaming in
-  print_render type_letters;
+  print_render_and_cursor type_letters;
   [%expect
     {|
-    pick: 1a 'Awesome Message!'(renaming)
+    pick: 1a 'Awesome Message!_'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
@@ -107,20 +107,29 @@ let%expect_test "Renaming" =
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
-  let rename_erasing = play_events [ Char 'R' ] validate_typing in
-  print_render rename_erasing;
+  let move_cursor = play_events [ Left; Left ] type_letters in
+  print_render_and_cursor move_cursor;
   [%expect
     {|
-    pick: 1a ''(renaming)
+    pick: 1a 'Awesome Messag_!'(renaming)
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+    |}];
+  let rename_erasing = play_events [ Char 'R' ] validate_typing in
+  print_render_and_cursor rename_erasing;
+  [%expect
+    {|
+    pick: 1a '_'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'
     |}];
   let rename_keeping_renamed = play_events [ Char 'r' ] validate_typing in
-  print_render rename_keeping_renamed;
+  print_render_and_cursor rename_keeping_renamed;
   [%expect
     {|
-    pick: 1a 'Awesome Message!'(renaming)
+    pick: 1a 'Awesome Message!_'(renaming)
     pick: 2b 'B'
     pick: 3c 'C'
     pick: 4d 'D'

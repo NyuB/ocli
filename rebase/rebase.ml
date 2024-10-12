@@ -187,7 +187,7 @@ module App (Info : Rebase_info_external) :
   type mode =
     | Navigate (** Navigating between rebase entries *)
     | Move (** Moving a single rebase entry up & down *)
-    | Rename of string
+    | Rename of Editing_line.t
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
     | Cli of Editing_line.t
 
@@ -237,10 +237,6 @@ module App (Info : Rebase_info_external) :
     }
   ;;
 
-  let string_of_renaming_entry { command; sha1; _ } (rename : string) : string =
-    Printf.sprintf "%s: %s '%s'(renaming)" (string_of_rebase_command command) sha1 rename
-  ;;
-
   let entry_count model = Array.length model.entries
 
   let move_prefix model =
@@ -258,6 +254,23 @@ module App (Info : Rebase_info_external) :
 
   let fixup_prefix model = model.symbols.fixup_prefix
 
+  let renaming_entry_component { command; sha1; _ } editing =
+    let style = Tty.Default_style.default_style in
+    let left =
+      Printf.sprintf "%s: %s '" (string_of_rebase_command command) sha1
+      |> Components.Text_line.component
+      |> Components.to_ansi_view_component style
+    and right =
+      "'(renaming)"
+      |> Components.Text_line.component
+      |> Components.to_ansi_view_component style
+    and editing_component =
+      Editing_line.make editing
+      |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
+    in
+    Row.make [ left; editing_component; right ]
+  ;;
+
   let highlight_entry (i : int) (e : rebase_entry) (model : model)
     : Tty.ansi_view_item list Components.component
     =
@@ -270,19 +283,20 @@ module App (Info : Rebase_info_external) :
       else base_style
     in
     let prefix = if is_fixup e.command then fixup_prefix model else "" in
-    let repr =
-      match model.mode with
-      | Navigate | Cli _ ->
-        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      | Move when model.cursor <> i ->
-        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      | Rename _ when model.cursor <> i ->
-        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      | Move ->
-        Components.Text_line.component (move_prefix model ^ string_of_rebase_entry e)
-      | Rename s -> Components.Text_line.component (string_of_renaming_entry e s)
-    in
-    Components.to_ansi_view_component style repr
+    match model.mode with
+    | Navigate | Cli _ ->
+      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      |> Components.to_ansi_view_component style
+    | Move when model.cursor <> i ->
+      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      |> Components.to_ansi_view_component style
+    | Rename _ when model.cursor <> i ->
+      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+      |> Components.to_ansi_view_component style
+    | Move ->
+      Components.Text_line.component (move_prefix model ^ string_of_rebase_entry e)
+      |> Components.to_ansi_view_component style
+    | Rename s -> renaming_entry_component e s
   ;;
 
   let current_entry model = model.entries.(model.cursor)
@@ -408,7 +422,8 @@ module App (Info : Rebase_info_external) :
     if model.cursor = 0 then model else set_rebase_command model (Fixup fixup_kind)
   ;;
 
-  let set_name ({ cursor; entries; _ } as model) name =
+  let set_name ({ cursor; entries; _ } as model) editing_name =
+    let name = Editing_line.to_string editing_name in
     let current = entries.(cursor) in
     let copy = Array.copy entries in
     copy.(cursor) <- { current with custom = Rename name };
@@ -422,12 +437,6 @@ module App (Info : Rebase_info_external) :
     <- { current with custom = (if current.custom = Explode then Nothing else Explode) };
     { model with entries = copy; mode = Navigate }
   ;;
-
-  let del_last_char s =
-    if String.length s = 0 then s else String.sub s 0 (String.length s - 1)
-  ;;
-
-  let append_char s c = Printf.sprintf "%s%c" s c
 
   let exit_with model =
     ( model
@@ -473,8 +482,10 @@ module App (Info : Rebase_info_external) :
     | Move, Down -> move_down model, []
     | Move, Left -> switch_mode Navigate model, []
     | Rename name, Enter -> set_name model name, []
-    | Rename s, Char c -> renaming_with model (append_char s c), []
-    | Rename s, Del -> renaming_with model (del_last_char s), []
+    | Rename s, Char c -> renaming_with model (Editing_line.append_char c s), []
+    | Rename s, Del -> renaming_with model (Editing_line.del s), []
+    | Rename s, Left -> renaming_with model (Editing_line.left s), []
+    | Rename s, Right -> renaming_with model (Editing_line.right s), []
     | Cli s, Char c -> { model with mode = Cli (Editing_line.append_char c s) }, []
     | Cli s, Del -> { model with mode = Cli (Editing_line.del s) }, []
     | Cli s, Left -> { model with mode = Cli (Editing_line.left s) }, []
@@ -491,8 +502,9 @@ module App (Info : Rebase_info_external) :
     | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
       set_rebase_command model Pick, []
     | [%cross_match (Navigate, Move), Char 'r'] ->
-      renaming_with model (current_message model), []
-    | [%cross_match (Navigate, Move), Char 'R'] -> renaming_with model "", []
+      renaming_with model (Editing_line.init @@ current_message model), []
+    | [%cross_match (Navigate, Move), Char 'R'] ->
+      renaming_with model @@ Editing_line.empty, []
     | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
