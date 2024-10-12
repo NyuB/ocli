@@ -1,3 +1,12 @@
+## 0.5.0
+### Rebase
+#### Features
+- Cli and Renaming are now actual 'line edition modes' with cursor navigation.
+#### Bugfixes
+- `newbase` now restore a correct terminal state without needing to call `reset`. The `RESET` env argument is thus now ignored by `newbase`.
+### tty
+- Introduced a (limited) component system to modularize individual widget rendering. Each component is responsible to create its own view within a box, and to reutrn the actual dimensions of this view.
+
 ## 0.4.0
 ### Rebase
 #### Features
