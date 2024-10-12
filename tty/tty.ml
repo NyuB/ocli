@@ -234,14 +234,6 @@ let read_terminal_input_loop terminal out =
   aux ask_resize_freq
 ;;
 
-let default_behavior_disabled term_info =
-  (*
-     c_icanon = false => disable special input pre processing
-     echo     = false => disable auto-printing of inputs to output
-  *)
-  Unix.{ term_info with c_icanon = false; c_echo = false }
-;;
-
 module type Posix_terminal = sig
   val terminal_in : Unix.file_descr
   val terminal_out : Out_channel.t
@@ -257,6 +249,18 @@ end = struct
   include Ansi_Tea_Base
 
   type command = Tea.no_command
+
+  let default_behavior_disabled term_info =
+    (*
+       c_icanon = false => disable special input pre processing
+       echo     = false => disable auto-printing of inputs to output
+    *)
+    Unix.{ term_info with c_icanon = false; c_echo = false }
+  ;;
+
+  let default_behavior_enabled term_info =
+    Unix.{ term_info with c_icanon = true; c_echo = true }
+  ;;
 
   let tty_out_chars = send_chars T.terminal_out
   and tty_out_line s = send_string T.terminal_out s
@@ -293,5 +297,12 @@ end = struct
 
   let poll_events () = read_terminal_input_loop T.terminal_in T.terminal_out
   let handle_commands _ = ()
-  let restore_terminal_state () = tty_out_chars show_cursor
+
+  let restore_terminal_state () =
+    tty_out_chars clear_screen;
+    tty_out_line (move { row = 1; col = 1 });
+    let info = Unix.tcgetattr T.terminal_in in
+    Unix.tcsetattr T.terminal_in Unix.TCSANOW (default_behavior_enabled info);
+    tty_out_chars show_cursor
+  ;;
 end

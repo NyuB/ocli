@@ -1,5 +1,5 @@
   $ chmod +x newbase
-  $ newbase_test () { CUSTOM_EDITOR=rebase_pass RESET=false ./newbase $1 2>/dev/null; }
+  $ newbase_test () { CUSTOM_EDITOR=rebase_pass ./newbase $1 2>/dev/null; }
   $ git init -b main
   Initialized empty Git repository in $TESTCASE_ROOT/.git/
   $ git config user.email "you@test.com"
@@ -27,6 +27,6 @@ When passing a number <n>, it is interpreted as the ref HEAD~<n>
   Commit 4 # empty
 Fail when missing argument
 (not using the newbase_test helper is deliberate, to display the error message)
-  $ CUSTOM_EDITOR=rebase_pass RESET=false ./newbase
+  $ CUSTOM_EDITOR=rebase_pass ./newbase
   ./newbase: line 3: 1: Usage: newbase <REF|number>
   [1]
