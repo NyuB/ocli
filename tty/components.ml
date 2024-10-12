@@ -29,6 +29,17 @@ let to_ansi_view_component style (component : Tty.ansi_view_item_kind component)
     component
 ;;
 
+let positioned_to_ansi_view_component
+  style
+  (component : (Tty.position * Tty.ansi_view_item_kind) list component)
+  : Tty.ansi_view_item list component
+  =
+  map
+    (fun items constraints ->
+      List.map (fun (pos, kind) -> pos, style, kind) items, constraints)
+    component
+;;
+
 let styled_to_ansi_view_item_component
   (component : (Tty.style * Tty.ansi_view_item_kind) component)
   : Tty.ansi_view_item list component
@@ -147,5 +158,75 @@ module Text_line = struct
     else (
       let cropped = crop_to_size width line in
       Tty.Text cropped, { constraints with width = String.length cropped; height = 1 })
+  ;;
+end
+
+module Editing_line = struct
+  type t =
+    { s : string
+    ; cursor : int
+    }
+
+  type event =
+    | Del
+    | Char of char
+    | Left
+    | Right
+
+  let update ({ s; cursor } as t) (e : event) : t =
+    match e with
+    | Del ->
+      if cursor = 0
+      then t
+      else (
+        let deleted = cursor - 1 in
+        let left = String.sub s 0 deleted in
+        let right_from = cursor
+        and len = String.length s in
+        if right_from = len
+        then { s = left; cursor = cursor - 1 }
+        else (
+          let right = String.sub s right_from (String.length s - right_from) in
+          { s = left ^ right; cursor = cursor - 1 }))
+    | Char c ->
+      let left = String.sub s 0 cursor
+      and right =
+        if String.length s = cursor
+        then ""
+        else String.sub s cursor (String.length s - cursor)
+      in
+      { s = Printf.sprintf "%s%c%s" left c right; cursor = cursor + 1 }
+    | Left -> { t with cursor = max 0 (cursor - 1) }
+    | Right -> { t with cursor = min (String.length s) (cursor + 1) }
+  ;;
+
+  let append_char c t = update t (Char c)
+  let del t = update t Del
+  let left t = update t Left
+  let right t = update t Right
+  let empty = { s = ""; cursor = 0 }
+  let init s = { s; cursor = String.length s }
+  let to_string t = t.s
+  let edition_index t = t.cursor
+
+  let make { s; cursor } { col_start; width; row_start; height } =
+    if height <= 0 || width <= 0
+    then [], { row_start; col_start; width = 0; height = 0 }
+    else (
+      let len = String.length s in
+      if len <= width
+      then
+        ( [ Tty.{ row = row_start; col = col_start }, Tty.text s
+          ; Tty.{ row = row_start; col = col_start + cursor }, Tty.Cursor
+          ]
+        , { row_start; col_start; height = 1; width = max len (cursor + 1) } )
+      else (
+        let left = width / 2 in
+        let left_start = max 0 (cursor - left) in
+        let cropped = String.sub s left_start width in
+        ( [ Tty.{ row = row_start; col = col_start }, Tty.text @@ cropped
+          ; Tty.{ row = row_start; col = cursor - left_start + 1 }, Tty.Cursor
+          ]
+        , { row_start; col_start; height = 1; width } )))
   ;;
 end

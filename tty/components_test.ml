@@ -1,3 +1,5 @@
+module Editing_line = Components.Editing_line
+
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 let chars s = String.to_seq s |> Seq.map (fun c -> Editing_line.Char c) |> List.of_seq
@@ -62,7 +64,14 @@ let test_left_char_after_three_chars =
 ;;
 
 let test_style = Tty.Default_style.default_style
-let view = Editing_line.view test_style
+
+let view row_start col_start width t =
+  let component =
+    Editing_line.make t |> Components.positioned_to_ansi_view_component test_style
+  in
+  let v, _ = component { row_start; col_start; height = 1; width } in
+  v
+;;
 
 let view_item_kind_testable : Tty.ansi_view_item_kind Alcotest.testable =
   Alcotest.testable
@@ -119,6 +128,23 @@ let test_view_partial =
         edited_view )
 ;;
 
+let test_view_partial_left =
+  ( "Display only a portion starting with cursor when not enough space available and \
+     cursor is on the first letter"
+  , fun () ->
+      let edited =
+        Editing_line.empty
+        |> play_events (chars "abcde")
+        |> play_events [ Left; Left; Left; Left; Left ]
+      in
+      let edited_view = view 1 1 3 edited in
+      check_view
+        [ { row = 1; col = 1 }, test_style, Text "abc"
+        ; { row = 1; col = 1 }, test_style, Cursor
+        ]
+        edited_view )
+;;
+
 let () =
   Alcotest.run
     "Editing line"
@@ -131,6 +157,6 @@ let () =
           ; test_left_char_after_three_chars
           ; test_right_then_char_after_three_chars
           ] )
-    ; "View", quick_tests [ test_view_full; test_view_partial ]
+    ; "View", quick_tests [ test_view_full; test_view_partial; test_view_partial_left ]
     ]
 ;;

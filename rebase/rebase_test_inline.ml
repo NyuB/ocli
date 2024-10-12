@@ -36,6 +36,14 @@ let print_render_app view model =
 
 let print_render = print_render_app Test_App.view
 
+let print_render_and_cursor_app view model =
+  Tty_testing.Test_Platform.render @@ view model;
+  Tty_testing.Test_Platform.highlight_cursor ();
+  List.iter print_endline (Tty_testing.Test_Platform.lines ())
+;;
+
+let print_render_and_cursor = print_render_and_cursor_app Test_App.view
+
 let%expect_test "Moving commits" =
   let down_right = play_events [ Down; Right ] Test_App.init in
   print_render down_right;
@@ -241,7 +249,7 @@ let%expect_test "Display modified files along entries" =
 
 let%expect_test "CLI mode" =
   let entered_cli = play_events [ Char ':' ] Test_App.init in
-  print_render entered_cli;
+  print_render_and_cursor entered_cli;
   [%expect
     {|
     pick: 1a 'A'
@@ -249,10 +257,10 @@ let%expect_test "CLI mode" =
     pick: 3c 'C'
     pick: 4d 'D'
 
-    :
+    :_
     |}];
   let typing_command = play_events (chars "command") entered_cli in
-  print_render typing_command;
+  print_render_and_cursor typing_command;
   [%expect
     {|
     pick: 1a 'A'
@@ -260,7 +268,17 @@ let%expect_test "CLI mode" =
     pick: 3c 'C'
     pick: 4d 'D'
 
-    :command
+    :command_
+    |}];
+  let navigate = play_events [ Left; Left; Del ] typing_command in
+  print_render_and_cursor navigate;
+  [%expect {|
+    pick: 1a 'A'
+    pick: 2b 'B'
+    pick: 3c 'C'
+    pick: 4d 'D'
+
+    :comm_d
     |}];
   let quitting = play_events [ Esc ] typing_command in
   print_render quitting;

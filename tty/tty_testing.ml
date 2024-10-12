@@ -2,6 +2,7 @@ module Test_Platform : sig
   include Tty.Ansi_Platform with type command = Tea.no_command
 
   val set_dimensions : Tty.position -> unit
+  val highlight_cursor : unit -> unit
   val lines : unit -> string list
 end = struct
   include Tty.Ansi_Tea_Base
@@ -39,7 +40,9 @@ end = struct
   let poll_events () = [ Tty.Size { row = !rows; col = !cols } ]
 
   let render_string_at (pos : Tty.position) s =
-    if pos.row > !rows
+    if String.length s = 0
+    then ()
+    else if pos.row > !rows
     then
       error_records
       := Printf.sprintf "Trying to write string '%s' at OOB row %d" s pos.row
@@ -63,10 +66,26 @@ end = struct
       done)
   ;;
 
+  let render_cursor_at (pos : Tty.position) =
+    if pos.row > !rows || pos.row < 1
+    then
+      error_records
+      := Printf.sprintf "Trying to write cursor at OOB row %d" pos.row :: !error_records
+    else if pos.col > !cols || pos.col < 1
+    then
+      error_records
+      := Printf.sprintf "Trying to write cursor at OOB col %d" pos.col :: !error_records
+    else cursor_position := pos
+  ;;
+
+  let highlight_cursor () =
+    !current_rendering.(!cursor_position.row - 1).(!cursor_position.col - 1) <- '_'
+  ;;
+
   let setup () = ()
 
   let render_view_item pos = function
-    | Tty.Cursor -> cursor_position := pos
+    | Tty.Cursor -> render_cursor_at pos
     | Tty.Text s -> render_string_at pos s
   ;;
 

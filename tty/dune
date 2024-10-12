@@ -17,11 +17,6 @@
   (pps ppx_expect)))
 
 (library
- (name editing_line)
- (modules editing_line)
- (libraries tty))
-
-(library
  (name tty_testing)
  (modules tty_testing)
  (libraries qol tty tea)
@@ -30,6 +25,6 @@
   (pps ppx_expect)))
 
 (tests
- (names tty_test editing_line_test)
- (modules tty_test editing_line_test)
- (libraries alcotest tty editing_line))
+ (names tty_test components_test)
+ (modules tty_test components_test)
+ (libraries alcotest components tty))

@@ -1,6 +1,11 @@
 (** Application logic of a custom rebase editor *)
 open Qol
 
+module Column = Components.Column (Components.Merge_ansi_views)
+module Row = Components.Row (Components.Merge_ansi_views)
+module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
+module Editing_line = Components.Editing_line
+
 type fixup_kind =
   | Discard_message
   | Keep_message
@@ -278,12 +283,16 @@ module App (Info : Rebase_info_external) :
   let current_sha1 model = (current_entry model).sha1
   let cli_line_count = 2
 
-  let cli_view model =
-    let style = Tty.Default_style.default_style
-    and row = min model.dimensions.row (entry_count model + 2) in
+  let cli_view model : Tty.ansi_view_item list Components.component =
+    let style = Tty.Default_style.default_style in
     match model.mode with
-    | Cli s -> Editing_line.view style row 1 model.dimensions.col s
-    | _ -> Tty.[ { row; col = 1 }, style, Tty.text "" ]
+    | Cli s -> Editing_line.make s |> Components.positioned_to_ansi_view_component style
+    | _ -> Components.Text_line.component "" |> Components.to_ansi_view_component style
+  ;;
+
+  let cli_separator =
+    Components.Text_line.component ""
+    |> Components.to_ansi_view_component Tty.Default_style.default_style
   ;;
 
   let start_dest model =
@@ -299,10 +308,6 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let slice start dest arr = Array.init (dest - start + 1) (fun i -> arr.(i + start))
-
-  module Column = Components.Column (Components.Merge_ansi_views)
-  module Row = Components.Row (Components.Merge_ansi_views)
-  module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
 
   let panel_separator model =
     let files = Info.modified_files (current_sha1 model) in
@@ -351,8 +356,9 @@ module App (Info : Rebase_info_external) :
       Row_divided.make
         [ left_panel_view model, 6; panel_separator model, 1; right_panel_view model, 2 ]
     in
-    let panels_view, _ = left_right_panel constraints in
-    panels_view @ cli_view model
+    let full_screen = Column.make [ left_right_panel; cli_separator; cli_view model ] in
+    let v, _ = full_screen constraints in
+    v
   ;;
 
   let swap arr a b =
