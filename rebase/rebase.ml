@@ -332,11 +332,18 @@ module App (Info : Rebase_info_external) :
       |> Column.component
   ;;
 
+  let default_line_component line =
+    Components.Text_line.component line
+    |> Components.to_ansi_view_component Tty.Default_style.default_style
+  ;;
+
   let right_panel_view model =
-    Info.modified_files (current_sha1 model)
-    |> List.map Components.Text_line.component
-    |> List.map (Components.to_ansi_view_component Tty.Default_style.default_style)
-    |> Column.component
+    let file_entries =
+      Info.modified_files (current_sha1 model)
+      |> Array.of_list
+      |> Array.map default_line_component
+    in
+    Column_sliding.component (fun _ e -> e) file_entries 0
   ;;
 
   let left_panel_view model =
