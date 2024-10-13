@@ -2,6 +2,7 @@
 open Qol
 
 module Column = Components.Column (Components.Merge_ansi_views)
+module Column_divided = Components.Column_divided (Components.Merge_ansi_views)
 module Column_sliding = Components.Column_sliding (Components.Merge_ansi_views)
 module Row = Components.Row (Components.Merge_ansi_views)
 module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
@@ -302,7 +303,6 @@ module App (Info : Rebase_info_external) :
 
   let current_entry model = model.entries.(model.cursor)
   let current_sha1 model = (current_entry model).sha1
-  let cli_line_count = 2
 
   let cli_view model : Tty.ansi_view_item list Components.component =
     let style = Tty.Default_style.default_style in
@@ -349,7 +349,7 @@ module App (Info : Rebase_info_external) :
         { col_start = 1
         ; row_start = 1
         ; width = model.dimensions.col
-        ; height = model.dimensions.row - cli_line_count
+        ; height = model.dimensions.row
         }
     in
     let left_right_panel =
@@ -357,7 +357,11 @@ module App (Info : Rebase_info_external) :
         [ left_panel_view model, 6; panel_separator model, 1; right_panel_view model, 2 ]
     in
     let full_screen =
-      Column.component [ left_right_panel; cli_separator; cli_view model ]
+      Column_divided.component
+        [ left_right_panel, model.dimensions.row - 2
+        ; cli_separator, 1
+        ; cli_view model, 1
+        ]
     in
     let v, _ = full_screen constraints in
     v
