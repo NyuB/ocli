@@ -1,20 +1,31 @@
-type constraints =
-  { col_start : int
-  ; width : int
-  ; row_start : int
-  ; height : int
-  }
+module Constraints = struct
+  type t =
+    { col_start : int
+    ; width : int
+    ; row_start : int
+    ; height : int
+    }
+end
 
-let next_col_start { col_start; width; _ } = col_start + width
-let next_row_start { row_start; height; _ } = row_start + height
+module Space = struct
+  type t =
+    { col_start : int
+    ; width : int
+    ; row_start : int
+    ; height : int
+    }
+end
 
-type 'view component = constraints -> 'view * constraints
+let next_col_start Space.{ col_start; width; _ } = col_start + width
+let next_row_start Space.{ row_start; height; _ } = row_start + height
+
+type 'view component = Constraints.t -> 'view * Space.t
 
 let map
-  (f : 'a -> constraints -> 'b * constraints)
+  (f : 'a -> Space.t -> 'b * Space.t)
   (component : 'a component)
-  (constraints : constraints)
-  : 'b * constraints
+  (constraints : Constraints.t)
+  : 'b * Space.t
   =
   let v, c = component constraints in
   f v c
@@ -24,8 +35,8 @@ let to_ansi_view_component style (component : Tty.ansi_view_item_kind component)
   : Tty.ansi_view_item list component
   =
   map
-    (fun item ({ col_start; row_start; _ } as constraints) ->
-      [ Tty.{ col = col_start; row = row_start }, style, item ], constraints)
+    (fun item ({ col_start; row_start; _ } as size) ->
+      [ Tty.{ col = col_start; row = row_start }, style, item ], size)
     component
 ;;
 
@@ -35,8 +46,7 @@ let positioned_to_ansi_view_component
   : Tty.ansi_view_item list component
   =
   map
-    (fun items constraints ->
-      List.map (fun (pos, kind) -> pos, style, kind) items, constraints)
+    (fun items size -> List.map (fun (pos, kind) -> pos, style, kind) items, size)
     component
 ;;
 
@@ -45,8 +55,8 @@ let styled_to_ansi_view_item_component
   : Tty.ansi_view_item list component
   =
   map
-    (fun (style, item) ({ col_start; row_start; _ } as constraints) ->
-      [ Tty.{ col = col_start; row = row_start }, style, item ], constraints)
+    (fun (style, item) ({ col_start; row_start; _ } as size) ->
+      [ Tty.{ col = col_start; row = row_start }, style, item ], size)
     component
 ;;
 
@@ -66,10 +76,11 @@ end
 
 module Row (M : Merge_views) = struct
   let shift_constraints constraints component_rendering =
-    { constraints with
-      col_start = next_col_start component_rendering
-    ; width = constraints.width - component_rendering.width
-    }
+    Constraints.
+      { constraints with
+        col_start = next_col_start component_rendering
+      ; width = constraints.width - component_rendering.width
+      }
   ;;
 
   let add_column (view, constraints, max_height) item =
@@ -80,11 +91,13 @@ module Row (M : Merge_views) = struct
   ;;
 
   let component (components : 'view component list) : 'view component =
-    fun ({ width; _ } as constraints) ->
-    let v, { width = remaining_width; _ }, max_height =
+    fun ({ width; col_start; row_start; _ } as constraints) ->
+    let v, Constraints.{ width = remaining_width; _ }, max_height =
       List.fold_left add_column (M.empty, constraints, 0) components
     in
-    v, { constraints with height = max_height; width = width - remaining_width }
+    ( v
+    , Space.{ col_start; row_start; height = max_height; width = width - remaining_width }
+    )
   ;;
 end
 
@@ -98,13 +111,14 @@ module Row_divided (M : Merge_views) = struct
       List.fold_left
         (fun (v, col, max_height) (component, fraction) ->
           let available = constraints.width * fraction / total in
-          let component_view, { height; width; _ } =
+          let component_view, Space.{ height; width; _ } =
             component
-              { col_start = col
-              ; row_start = constraints.row_start
-              ; width = available
-              ; height = constraints.height
-              }
+              Constraints.
+                { col_start = col
+                ; row_start = constraints.row_start
+                ; width = available
+                ; height = constraints.height
+                }
           in
           M.merge v component_view, col + width, max max_height height)
         (M.empty, constraints.col_start, 0)
@@ -121,10 +135,11 @@ end
 
 module Column (M : Merge_views) = struct
   let shift_constraints constraints component_rendering =
-    { constraints with
-      row_start = next_row_start component_rendering
-    ; height = constraints.height - component_rendering.height
-    }
+    Constraints.
+      { constraints with
+        row_start = next_row_start component_rendering
+      ; height = constraints.height - component_rendering.height
+      }
   ;;
 
   let add_row (view, constraints, max_width) item =
@@ -135,11 +150,13 @@ module Column (M : Merge_views) = struct
   ;;
 
   let component (components : 'view component list) : 'view component =
-    fun ({ height; _ } as constraints) ->
-    let v, { height = remaining_height; _ }, max_width =
+    fun ({ height; col_start; row_start; _ } as constraints) ->
+    let v, Constraints.{ height = remaining_height; _ }, max_width =
       List.fold_left add_row (M.empty, constraints, 0) components
     in
-    v, { constraints with height = height - remaining_height; width = max_width }
+    ( v
+    , Space.
+        { col_start; row_start; height = height - remaining_height; width = max_width } )
   ;;
 end
 
@@ -154,12 +171,13 @@ module Text_line = struct
     else ""
   ;;
 
-  let component line ({ width; height; _ } as constraints) =
+  let component line Constraints.{ width; height; col_start; row_start } =
     if height <= 0
-    then Tty.Text "", { constraints with width = 0; height = 0 }
+    then Tty.Text "", Space.{ col_start; row_start; width = 0; height = 0 }
     else (
       let cropped = crop_to_size width line in
-      Tty.Text cropped, { constraints with width = String.length cropped; height = 1 })
+      ( Tty.Text cropped
+      , Space.{ col_start; row_start; width = String.length cropped; height = 1 } ))
   ;;
 end
 
@@ -233,9 +251,9 @@ module Editing_line = struct
       !left, !right)
   ;;
 
-  let component { s; cursor } { col_start; width; row_start; height } =
+  let component { s; cursor } Constraints.{ col_start; width; row_start; height } =
     if height <= 0 || width <= 0
-    then [], { row_start; col_start; width = 0; height = 0 }
+    then [], Space.{ row_start; col_start; width = 0; height = 0 }
     else (
       let len = String.length s in
       if len <= width

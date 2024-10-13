@@ -2,7 +2,7 @@ let print_render view = Tty_testing.print_render_app Fun.id view
 let print_render_and_cursor view = Tty_testing.print_render_and_cursor_app Fun.id view
 
 let top_left_constraint =
-  Components.{ row_start = 1; col_start = 1; width = 100; height = 100 }
+  Components.Constraints.{ row_start = 1; col_start = 1; width = 100; height = 100 }
 ;;
 
 let view component constraints =
@@ -69,7 +69,7 @@ let%expect_test "Row and column components" =
 
 let%expect_test "Divided row" =
   let only_nine_width =
-    Components.{ col_start = 1; row_start = 1; width = 9; height = 1 }
+    Components.Constraints.{ col_start = 1; row_start = 1; width = 9; height = 1 }
   in
   let print_render component = print_render @@ view component only_nine_width in
   let line_a = Components.Text_line.component "AAA" |> default_styled
@@ -91,7 +91,7 @@ let play_events editing events =
 
 let%expect_test "Editing line" =
   let only_nine_width =
-    Components.{ col_start = 1; row_start = 1; width = 9; height = 1 }
+    Components.Constraints.{ col_start = 1; row_start = 1; width = 9; height = 1 }
   in
   let print_render line =
     let component =

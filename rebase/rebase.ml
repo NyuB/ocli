@@ -362,7 +362,7 @@ module App (Info : Rebase_info_external) :
 
   let view model : Tty.ansi_view_item list =
     let constraints =
-      Components.
+      Components.Constraints.
         { col_start = 1
         ; row_start = 1
         ; width = model.dimensions.col
