@@ -280,7 +280,7 @@ module App (Info : Rebase_info_external) :
     Row.component [ left; editing_component; right ]
   ;;
 
-  let highlight_entry (model : model) (i : int) (e : rebase_entry)
+  let rebase_entry_component (model : model) (i : int) (e : rebase_entry)
     : Tty.ansi_view_item list Components.component
     =
     let base_style =
@@ -362,7 +362,7 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let left_panel_view model =
-    Column_sliding.component (highlight_entry model) model.entries model.cursor
+    Column_sliding.component (rebase_entry_component model) model.entries model.cursor
   ;;
 
   let view model : Tty.ansi_view_item list =
