@@ -2,6 +2,7 @@
 open Qol
 
 module Column = Components.Column (Components.Merge_ansi_views)
+module Column_sliding = Components.Column_sliding (Components.Merge_ansi_views)
 module Row = Components.Row (Components.Merge_ansi_views)
 module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
 module Editing_line = Components.Editing_line
@@ -271,7 +272,7 @@ module App (Info : Rebase_info_external) :
     Row.component [ left; editing_component; right ]
   ;;
 
-  let highlight_entry (i : int) (e : rebase_entry) (model : model)
+  let highlight_entry (model : model) (i : int) (e : rebase_entry)
     : Tty.ansi_view_item list Components.component
     =
     let base_style =
@@ -316,20 +317,6 @@ module App (Info : Rebase_info_external) :
     |> Components.to_ansi_view_component Tty.Default_style.default_style
   ;;
 
-  let start_dest model =
-    let available = model.dimensions.row - cli_line_count in
-    let full = entry_count model in
-    if full <= available
-    then 0, full - 1
-    else (
-      let before = available / 2 in
-      let start = max 0 (model.cursor - before) in
-      let dest = min (entry_count model - 1) (start + available - 1) in
-      start, dest)
-  ;;
-
-  let slice start dest arr = Array.init (dest - start + 1) (fun i -> arr.(i + start))
-
   let panel_separator model =
     let files = Info.modified_files (current_sha1 model) in
     let files_count = List.length files in
@@ -353,11 +340,7 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let left_panel_view model =
-    let start, dest = start_dest model in
-    Array.mapi (fun i e -> highlight_entry i e model) model.entries
-    |> slice start dest
-    |> Array.to_list
-    |> Column.component
+    Column_sliding.component (highlight_entry model) model.entries model.cursor
   ;;
 
   let view model : Tty.ansi_view_item list =
