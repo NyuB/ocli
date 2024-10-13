@@ -80,6 +80,12 @@ module Text_line : sig
   val component : string -> Tty.ansi_view_item_kind component
 end
 
+module Column_divided (M : Merge_views) : sig
+  type 'view fraction_component = 'view component * int
+
+  val component : M.view fraction_component list -> M.view component
+end
+
 (** Handle a line being 'edited', with current typed text and an edition cursor *)
 module Editing_line : sig
   type t
@@ -119,4 +125,13 @@ module Editing_line : sig
 
   (** Display the edited line, cropping it around cursor if needed, and the cursor *)
   val component : t -> (Tty.position * Tty.ansi_view_item_kind) list component
+end
+
+module Column_sliding (M : Merge_views) : sig
+  val component
+    :  ?height_per_entry:int
+    -> (int -> 'a -> M.view component)
+    -> 'a array
+    -> int
+    -> M.view component
 end

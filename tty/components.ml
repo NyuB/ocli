@@ -160,6 +160,38 @@ module Column (M : Merge_views) = struct
   ;;
 end
 
+module Column_divided (M : Merge_views) = struct
+  type 'view fraction_component = 'view component * int
+
+  let component (components : 'view fraction_component list) : 'view component =
+    fun constraints ->
+    let total = List.fold_left (fun n (_, f) -> n + f) 0 components in
+    let v, row, max_width =
+      List.fold_left
+        (fun (v, row, max_width) (component, fraction) ->
+          let available = constraints.height * fraction / total in
+          let component_view, Space.{ height; width; _ } =
+            component
+              Constraints.
+                { col_start = constraints.col_start
+                ; row_start = row
+                ; width = constraints.width
+                ; height = available
+                }
+          in
+          M.merge v component_view, row + height, max max_width width)
+        (M.empty, constraints.row_start, 0)
+        components
+    in
+    ( v
+    , { col_start = constraints.col_start
+      ; row_start = constraints.row_start
+      ; height = row - constraints.row_start
+      ; width = max_width
+      } )
+  ;;
+end
+
 module Text_line = struct
   let crop_to_size max_size s =
     if String.length s <= max_size
@@ -270,5 +302,46 @@ module Editing_line = struct
           ; Tty.{ row = row_start; col = col_start + cursor - left }, Tty.Cursor
           ]
         , { row_start; col_start; height = 1; width } )))
+  ;;
+end
+
+module Column_sliding (M : Merge_views) = struct
+  module Column = Column_divided (M)
+
+  let slice ~first ~last arr =
+    if first < 0 || first > last || last >= Array.length arr
+    then [||]
+    else (
+      let res = Array.make (last - first + 1) arr.(first) in
+      for i = first to last do
+        res.(i - first) <- arr.(i)
+      done;
+      res)
+  ;;
+
+  let first_last cursor len available =
+    let first = max 0 (cursor - (available / 2)) in
+    let last = min (len - 1) (first + available - 1) in
+    let diff = available - (last - first + 1) in
+    max 0 (first - diff), last
+  ;;
+
+  let component
+    ?(height_per_entry = 1)
+    (entry_component : int -> 'a -> M.view component)
+    (entries : 'a array)
+    cursor
+    (constraints : Constraints.t)
+    =
+    let components = Array.mapi entry_component entries in
+    let count = constraints.height / height_per_entry in
+    let first, last = first_last cursor (Array.length entries) count in
+    let evenly_divided_entries =
+      slice ~first ~last components
+      |> Array.map (fun cmp -> cmp, 1)
+      |> Array.to_list
+      |> Column.component
+    in
+    evenly_divided_entries constraints
   ;;
 end
