@@ -189,7 +189,7 @@ module App (Info : Rebase_info_external) :
     | Move (** Moving a single rebase entry up & down *)
     | Rename of Editing_line.t
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
-    | Cli of Editing_line.t
+    | Cli of Editing_line.t (** [Cli s] represents the ongoing typing of a command *)
 
   type symbols =
     { up_arrow_prefix : string
@@ -205,7 +205,7 @@ module App (Info : Rebase_info_external) :
     ; cursor : int (** The current selected entry index within [entries] *)
     ; mode : mode (** Crurrent [mode] *)
     ; dimensions : Tty.position (** Current dimensions of the display *)
-    ; symbols : symbols (** Special symbol representation *)
+    ; symbols : symbols (** Special symbols representation *)
     }
 
   let pretty_symbols : symbols =
