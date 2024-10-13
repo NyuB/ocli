@@ -242,6 +242,12 @@ module App (Info : Rebase_info_external) :
 
   let entry_count model = Array.length model.entries
 
+  let is_navigate_files model =
+    match model.mode with
+    | Navigate_files _ -> true
+    | _ -> false
+  ;;
+
   let move_prefix model =
     let is_first = model.cursor = 0
     and is_last = model.cursor = entry_count model - 1 in
@@ -368,9 +374,13 @@ module App (Info : Rebase_info_external) :
         ; height = model.dimensions.row
         }
     in
+    let left_portion, right_portion = if is_navigate_files model then 1, 7 else 6, 2 in
     let left_right_panel =
       Row_divided.component
-        [ left_panel_view model, 6; panel_separator model, 1; right_panel_view model, 2 ]
+        [ left_panel_view model, left_portion
+        ; panel_separator model, 1
+        ; right_panel_view model, right_portion
+        ]
     in
     let full_screen =
       Column_divided.component
