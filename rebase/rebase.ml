@@ -188,6 +188,7 @@ module App (Info : Rebase_info_external) :
 
   type mode =
     | Navigate (** Navigating between rebase entries *)
+    | Navigate_files of int (** Navigating between modified files *)
     | Move (** Moving a single rebase entry up & down *)
     | Rename of Editing_line.t
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
@@ -286,7 +287,7 @@ module App (Info : Rebase_info_external) :
     in
     let prefix = if is_fixup e.command then fixup_prefix model else "" in
     match model.mode with
-    | Navigate | Cli _ ->
+    | Navigate | Cli _ | Navigate_files _ ->
       Components.Text_line.component (prefix ^ string_of_rebase_entry e)
       |> Components.to_ansi_view_component style
     | Move when model.cursor <> i ->
@@ -303,6 +304,7 @@ module App (Info : Rebase_info_external) :
 
   let current_entry model = model.entries.(model.cursor)
   let current_sha1 model = (current_entry model).sha1
+  let modified_count model = List.length (Info.modified_files (current_sha1 model))
 
   let cli_view model : Tty.ansi_view_item list Components.component =
     let style = Tty.Default_style.default_style in
@@ -318,8 +320,7 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let panel_separator model =
-    let files = Info.modified_files (current_sha1 model) in
-    let files_count = List.length files in
+    let files_count = modified_count model in
     let symbols = model.symbols in
     if files_count = 0
     then Column.component []
@@ -332,18 +333,26 @@ module App (Info : Rebase_info_external) :
       |> Column.component
   ;;
 
-  let default_line_component line =
-    Components.Text_line.component line
-    |> Components.to_ansi_view_component Tty.Default_style.default_style
-  ;;
-
   let right_panel_view model =
+    let selected_index =
+      match model.mode with
+      | Navigate_files i -> Some i
+      | _ -> None
+    in
+    let style i =
+      if selected_index = Some i
+      then { Tty.Default_style.default_style with bg_color = Some Tty.Cyan }
+      else Tty.Default_style.default_style
+    in
     let file_entries =
       Info.modified_files (current_sha1 model)
       |> Array.of_list
-      |> Array.map default_line_component
+      |> Array.map Components.Text_line.component
     in
-    Column_sliding.component (fun _ e -> e) file_entries 0
+    Column_sliding.component
+      (fun i e -> e |> Components.to_ansi_view_component (style i))
+      file_entries
+      (Option.value ~default:0 selected_index)
   ;;
 
   let left_panel_view model =
@@ -459,9 +468,15 @@ module App (Info : Rebase_info_external) :
     { model with mode = Navigate; entries = new_entries }
   ;;
 
+  let navigate_files model =
+    let files = Info.modified_files (current_sha1 model) in
+    if List.is_empty files then model else { model with mode = Navigate_files 0 }
+  ;;
+
   let update_cli_command cmd model =
     match cmd with
     | ":q" -> exit_with model
+    | ":f" -> navigate_files model, []
     | ":abort" -> exit_with init
     | ":inline" -> inline model, []
     | ":pretty" -> { model with symbols = pretty_symbols } |> switch_mode Navigate, []
@@ -473,7 +488,10 @@ module App (Info : Rebase_info_external) :
     match model.mode, event with
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
     | Navigate, Down ->
-      { model with cursor = min (Array.length model.entries - 1) (model.cursor + 1) }, []
+      { model with cursor = min (entry_count model - 1) (model.cursor + 1) }, []
+    | Navigate_files i, Up -> switch_mode (Navigate_files (max 0 (i - 1))) model, []
+    | Navigate_files i, Down ->
+      switch_mode (Navigate_files (min (modified_count model - 1) (i + 1))) model, []
     | Navigate, Right -> switch_mode Move model, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
@@ -490,7 +508,8 @@ module App (Info : Rebase_info_external) :
     | Cli s, Enter -> update_cli_command (Editing_line.to_string s) model
     | [%cross_match (Navigate, Move), Char ':'] ->
       switch_mode (Cli (Editing_line.init ":")) model, []
-    | [%cross_match (Rename [%cross_any], Cli [%cross_any]), Esc] ->
+    | [%cross_match
+        (Rename [%cross_any], Cli [%cross_any], Navigate_files [%cross_any]), Esc] ->
       switch_mode Navigate model, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
       set_rebase_command model Drop, []
