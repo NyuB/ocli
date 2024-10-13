@@ -11,10 +11,11 @@
 ![boiling demo gif](docs/boiling.gif)
 
 ### Newbase
-+ [rebase_edit](rebase/rebase_edit.ml), an interactive git rebase editor, and it's associated [newbase](rebase/newbase.t/newbase) script, intended as a drop-in replacement for `git rebase -i`
+[rebase_edit](rebase/rebase_edit.ml), an interactive git rebase editor, and it's associated [newbase](rebase/newbase.t/newbase) script, intended as a drop-in replacement for `git rebase -i`
 ![rebase demo gif](docs/newbase.gif)
+You can browse the usage guide [here](rebase/usage.md)
 
-To get `rebase_edit` and `newbase`, you can [install them from source](#install-rebase-from-source) or get them from the github release:
+To get `rebase_edit` and `newbase`, you can [install them from source](#install-newbase-from-source) or get them from the [github release](https://github.com/NyuB/ocli/releases/latest/):
 
 ```console
 $ wget https://github.com/NyuB/ocli/releases/latest/download/newbase
@@ -31,6 +32,10 @@ $ mv rebase_edit ~/bin/
 + [tty](tty/tty.mli)
     - Wrappers around OCaml Stdlib termios functions
     - Wrappers around ANSI terminal control sequences
+    - [components](tty/components.mli), composable ansi widgets
+## Miscelaneous
++ [ppx_cross_match](ppx_cross_match/ppx_cross_match.ml), a ppx to generate a sinle pattern from the cardinal_product of pattern tuples
++ [qol](qol/qol.ml) various quality-of-life helpers
 
 ## Development
 
