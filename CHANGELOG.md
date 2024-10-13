@@ -1,7 +1,7 @@
-## Current
+## 0.6.0
 ### Rebase
 #### Features
-- Enter files navigation mode with the **:f** command. In this mode, modified files tab takes most of the available space and you can move up & down in the file list. This allow to browse the full list, that is cropped if containing to many files to fit the screen.
+- Enter files navigation mode with the **:f** command. In this mode, modified files tab takes most of the available space and you can move up & down in the file list. This allow to browse the full list, that is cropped if containing too many files to fit the screen.
 ### tty
 - Column_divided component similar to Row_divided
 - Column_sliding component showing a portion of an entry array arround a given index
