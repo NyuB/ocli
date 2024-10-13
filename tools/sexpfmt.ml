@@ -11,10 +11,7 @@ let write_lines filename lines =
 let () =
   let args = Array.sub Sys.argv 1 (Array.length Sys.argv - 1) in
   let input_file_name = args.(0)
-  and output_dir_name = args.(1) in
-  let output_file_name =
-    Filename.concat output_dir_name (Filename.basename input_file_name ^ ".formatted")
-  in
+  and output_file_name = args.(1) in
   let content =
     input_file_name
     |> Sexplib.Sexp.load_sexps

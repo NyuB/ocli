@@ -15,4 +15,4 @@
  (modules changelog))
 
 (cram
- (deps %{bin:changelog}))
+ (deps %{bin:changelog} %{bin:gitignorefmt} %{bin:sexpfmt}))

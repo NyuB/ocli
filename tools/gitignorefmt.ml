@@ -55,10 +55,7 @@ let inter_lines sections =
 
 let () =
   let input_file = Sys.argv.(1)
-  and output_dir = Sys.argv.(2) in
-  let output_file =
-    Filename.concat output_dir (Filename.basename input_file ^ ".formatted")
-  in
+  and output_file = Sys.argv.(2) in
   let lines =
     read_lines input_file |> List.map String.trim |> split_in_sections |> inter_lines
   in

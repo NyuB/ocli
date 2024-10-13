@@ -1,7 +1,7 @@
 (rule
  (target dune-project.formatted)
  (action
-  (run %{dep:tools/sexpfmt.exe} %{dep:dune-project} .)))
+  (run %{dep:tools/sexpfmt.exe} %{dep:dune-project} dune-project.formatted)))
 
 (rule
  (alias fmt)
@@ -11,7 +11,7 @@
 (rule
  (target .gitignore.formatted)
  (action
-  (run %{dep:tools/gitignorefmt.exe} %{dep:.gitignore} .)))
+  (run %{dep:tools/gitignorefmt.exe} %{dep:.gitignore} .gitignore.formatted)))
 
 (rule
  (alias fmt)
