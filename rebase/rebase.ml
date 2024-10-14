@@ -203,12 +203,17 @@ module App (Info : Rebase_info_external) :
     ; panel_bot_left_corner : string
     }
 
+  type appearance =
+    { symbols : symbols
+    ; selection_color : Tty.color
+    }
+
   type model =
     { entries : rebase_entry array
     ; cursor : int (** The current selected entry index within [entries] *)
     ; mode : mode (** Crurrent [mode] *)
     ; dimensions : Tty.position (** Current dimensions of the display *)
-    ; symbols : symbols (** Special symbols representation *)
+    ; appearance : appearance (** Appearance config *)
     }
 
   let pretty_symbols : symbols =
@@ -236,7 +241,7 @@ module App (Info : Rebase_info_external) :
     ; cursor = 0
     ; mode = Navigate
     ; dimensions = { row = 25; col = 80 }
-    ; symbols = pretty_symbols
+    ; appearance = { symbols = pretty_symbols; selection_color = Tty.Cyan }
     }
   ;;
 
@@ -251,7 +256,7 @@ module App (Info : Rebase_info_external) :
   let move_prefix model =
     let is_first = model.cursor = 0
     and is_last = model.cursor = entry_count model - 1 in
-    let symbols = model.symbols in
+    let symbols = model.appearance.symbols in
     if is_first && is_last
     then "   "
     else if is_first
@@ -261,7 +266,7 @@ module App (Info : Rebase_info_external) :
     else symbols.up_and_down_arrow_prefix
   ;;
 
-  let fixup_prefix model = model.symbols.fixup_prefix
+  let fixup_prefix model = model.appearance.symbols.fixup_prefix
 
   let renaming_entry_component { command; sha1; _ } editing =
     let style = Tty.Default_style.default_style in
@@ -288,7 +293,7 @@ module App (Info : Rebase_info_external) :
     in
     let style =
       if i = model.cursor
-      then { base_style with bg_color = Some Tty.Cyan }
+      then { base_style with bg_color = Some model.appearance.selection_color }
       else base_style
     in
     let prefix = if is_fixup e.command then fixup_prefix model else "" in
@@ -327,7 +332,7 @@ module App (Info : Rebase_info_external) :
 
   let panel_separator model =
     let files_count = modified_count model in
-    let symbols = model.symbols in
+    let symbols = model.appearance.symbols in
     if files_count = 0
     then Column.component []
     else
@@ -347,7 +352,10 @@ module App (Info : Rebase_info_external) :
     in
     let style i =
       if selected_index = Some i
-      then { Tty.Default_style.default_style with bg_color = Some Tty.Cyan }
+      then
+        { Tty.Default_style.default_style with
+          bg_color = Some model.appearance.selection_color
+        }
       else Tty.Default_style.default_style
     in
     let file_entries =
@@ -462,6 +470,12 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let switch_mode mode model = { model with mode }
+  let with_appearance appearance model = { model with appearance }
+
+  let with_selection_color selection_color model =
+    with_appearance { model.appearance with selection_color } model
+  ;;
+
   let renaming_with model s = { model with mode = Rename s }
 
   let current_message model =
@@ -484,13 +498,26 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let update_cli_command cmd model =
-    match cmd with
-    | ":q" -> exit_with model
-    | ":f" -> navigate_files model, []
-    | ":abort" -> exit_with init
-    | ":inline" -> inline model, []
-    | ":pretty" -> { model with symbols = pretty_symbols } |> switch_mode Navigate, []
-    | ":raw" -> { model with symbols = raw_symbols } |> switch_mode Navigate, []
+    match String.trim cmd |> String.split_on_char ' ' with
+    | [ ":q" ] -> exit_with model
+    | [ ":f" ] -> navigate_files model, []
+    | [ ":abort" ] -> exit_with init
+    | [ ":inline" ] -> inline model, []
+    | [ ":pretty" ] ->
+      ( { model with appearance = { model.appearance with symbols = pretty_symbols } }
+        |> switch_mode Navigate
+      , [] )
+    | [ ":raw" ] ->
+      ( { model with appearance = { model.appearance with symbols = raw_symbols } }
+        |> switch_mode Navigate
+      , [] )
+    | [ ":color"; "red" ] -> with_selection_color Red model, []
+    | [ ":color"; "green" ] -> with_selection_color Green model, []
+    | [ ":color"; "blue" ] -> with_selection_color Blue model, []
+    | [ ":color"; "cyan" ] -> with_selection_color Cyan model, []
+    | [ ":color"; "magenta" ] -> with_selection_color Magenta model, []
+    | [ ":color"; "yellow" ] -> with_selection_color Yellow model, []
+    | [ ":color"; "white" ] -> with_selection_color White model, []
     | _ -> switch_mode Navigate model, []
   ;;
 
