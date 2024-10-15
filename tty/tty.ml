@@ -99,7 +99,7 @@ let events_of_bytes bytes =
     | '\027' :: '\091' :: '\066' :: t -> aux (Down :: acc) t
     | '\027' :: '\091' :: '\067' :: t -> aux (Right :: acc) t
     | '\027' :: '\091' :: '\068' :: t -> aux (Left :: acc) t
-    | '\x1B' :: '[' :: t ->
+    | '\027' :: '[' :: t ->
       (match parse_resize t with
        | Some (pos, rest) -> aux (Size pos :: acc) rest
        | None -> aux (Unknown :: acc) t)
