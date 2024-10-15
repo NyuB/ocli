@@ -33,6 +33,58 @@ let test_del_after_three_chars =
       check_int 2 (Editing_line.edition_index edited) )
 ;;
 
+let test_suppr_at_end =
+  ( "Suppr does nothing at end of line"
+  , fun () ->
+      let edited =
+        Editing_line.empty |> play_events [ Char 'a' ] |> play_events [ Suppr ]
+      in
+      check_string "a" (Editing_line.to_string edited);
+      check_int 1 (Editing_line.edition_index edited) )
+;;
+
+let test_suppr_from_empty_string =
+  ( "Suppr from empty string"
+  , fun () ->
+      let edited = Editing_line.empty |> play_events [ Suppr ] in
+      check_string "" (Editing_line.to_string edited);
+      check_int 0 (Editing_line.edition_index edited) )
+;;
+
+let test_suppr_from_last_char =
+  ( "Type abc, then left, then suppr"
+  , fun () ->
+      let edited =
+        Editing_line.empty |> play_events (chars "abc") |> play_events [ Left; Suppr ]
+      in
+      check_string "ab" (Editing_line.to_string edited);
+      check_int 2 (Editing_line.edition_index edited) )
+;;
+
+let test_suppr_from_first_char =
+  ( "Type abc, then left left left, then suppr"
+  , fun () ->
+      let edited =
+        Editing_line.empty
+        |> play_events (chars "abc")
+        |> play_events [ Left; Left; Left; Suppr ]
+      in
+      check_string "bc" (Editing_line.to_string edited);
+      check_int 0 (Editing_line.edition_index edited) )
+;;
+
+let test_suppr_from_mid_char =
+  ( "Type abc, then left left, then suppr"
+  , fun () ->
+      let edited =
+        Editing_line.empty
+        |> play_events (chars "abc")
+        |> play_events [ Left; Left; Suppr ]
+      in
+      check_string "ac" (Editing_line.to_string edited);
+      check_int 1 (Editing_line.edition_index edited) )
+;;
+
 let test_right_then_char_after_three_chars =
   ( "Right from end of string"
   , fun () ->
@@ -154,6 +206,11 @@ let () =
           ; test_del_from_empty
           ; test_del_after_three_chars
           ; test_left_del_after_three_chars
+          ; test_suppr_at_end
+          ; test_suppr_from_empty_string
+          ; test_suppr_from_last_char
+          ; test_suppr_from_first_char
+          ; test_suppr_from_mid_char
           ; test_left_char_after_three_chars
           ; test_right_then_char_after_three_chars
           ] )

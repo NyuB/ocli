@@ -11,6 +11,7 @@ type ansi_event =
   | Down
   | Left
   | Del
+  | Suppr
   | Enter
   | Esc
   | Size of position
@@ -23,6 +24,7 @@ let string_of_ansi_event = function
   | Down -> "Down"
   | Left -> "Left"
   | Del -> "Del"
+  | Suppr -> "Suppr"
   | Enter -> "Enter"
   | Esc -> "Esc"
   | Size { row; col } -> Printf.sprintf "Size %dx%d" row col
@@ -95,10 +97,11 @@ let parse_resize char_list =
 let events_of_bytes bytes =
   let rec aux acc = function
     | [] -> List.rev acc
-    | '\027' :: '\091' :: '\065' :: t -> aux (Up :: acc) t
-    | '\027' :: '\091' :: '\066' :: t -> aux (Down :: acc) t
-    | '\027' :: '\091' :: '\067' :: t -> aux (Right :: acc) t
-    | '\027' :: '\091' :: '\068' :: t -> aux (Left :: acc) t
+    | '\027' :: '\091' :: 'A' :: t -> aux (Up :: acc) t
+    | '\027' :: '\091' :: 'B' :: t -> aux (Down :: acc) t
+    | '\027' :: '\091' :: 'C' :: t -> aux (Right :: acc) t
+    | '\027' :: '\091' :: 'D' :: t -> aux (Left :: acc) t
+    | '\027' :: '\091' :: '3' :: '~' :: t -> aux (Suppr :: acc) t
     | '\027' :: '[' :: t ->
       (match parse_resize t with
        | Some (pos, rest) -> aux (Size pos :: acc) rest

@@ -221,6 +221,7 @@ module Editing_line = struct
 
   type event =
     | Del
+    | Suppr
     | Char of char
     | Left
     | Right
@@ -240,6 +241,14 @@ module Editing_line = struct
         else (
           let right = String.sub s right_from (len - right_from) in
           { s = left ^ right; cursor = cursor - 1 }))
+    | Suppr ->
+      if cursor = len
+      then t
+      else (
+        let right =
+          if cursor >= len - 1 then "" else String.sub s (cursor + 1) (len - cursor - 1)
+        in
+        { s = String.sub s 0 cursor ^ right; cursor })
     | Char c ->
       let left = String.sub s 0 cursor
       and right = if len = cursor then "" else String.sub s cursor (len - cursor) in
@@ -250,6 +259,7 @@ module Editing_line = struct
 
   let append_char c t = update t (Char c)
   let del t = update t Del
+  let suppr t = update t Suppr
   let left t = update t Left
   let right t = update t Right
   let empty = { s = ""; cursor = 0 }

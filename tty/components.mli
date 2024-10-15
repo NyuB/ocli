@@ -93,6 +93,7 @@ module Editing_line : sig
   (** *)
   type event =
     | Del (** Delete the character before cursor *)
+    | Suppr (** Delete the character under cursor *)
     | Char of char (** Type a character at cursor *)
     | Left (** Move cursor left *)
     | Right (** Move cursor right *)
@@ -104,6 +105,9 @@ module Editing_line : sig
 
   (** [del t] = [update t Del] *)
   val del : t -> t
+
+  (** [suppr t] = [update t Suppr] *)
+  val suppr : t -> t
 
   (** [left t] = [update t Left] *)
   val left : t -> t

@@ -536,10 +536,12 @@ module App (Info : Rebase_info_external) :
     | Rename name, Enter -> set_name model name, []
     | Rename s, Char c -> renaming_with model (Editing_line.append_char c s), []
     | Rename s, Del -> renaming_with model (Editing_line.del s), []
+    | Rename s, Suppr -> renaming_with model (Editing_line.suppr s), []
     | Rename s, Left -> renaming_with model (Editing_line.left s), []
     | Rename s, Right -> renaming_with model (Editing_line.right s), []
     | Cli s, Char c -> { model with mode = Cli (Editing_line.append_char c s) }, []
     | Cli s, Del -> { model with mode = Cli (Editing_line.del s) }, []
+    | Cli s, Suppr -> { model with mode = Cli (Editing_line.suppr s) }, []
     | Cli s, Left -> { model with mode = Cli (Editing_line.left s) }, []
     | Cli s, Right -> { model with mode = Cli (Editing_line.right s) }, []
     | Cli s, Enter -> update_cli_command (Editing_line.to_string s) model
@@ -548,7 +550,7 @@ module App (Info : Rebase_info_external) :
     | [%cross_match
         (Rename [%cross_any], Cli [%cross_any], Navigate_files [%cross_any]), Esc] ->
       switch_mode Navigate model, []
-    | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del)] ->
+    | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del, Suppr)] ->
       set_rebase_command model Drop, []
     | [%cross_match (Navigate, Move), Char 'f'] -> set_fixup model Discard_message, []
     | [%cross_match (Navigate, Move), Char 'F'] -> set_fixup model Keep_message, []

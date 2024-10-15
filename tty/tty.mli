@@ -11,6 +11,7 @@ type ansi_event =
   | Down
   | Left
   | Del
+  | Suppr
   | Enter
   | Esc
   | Size of position
