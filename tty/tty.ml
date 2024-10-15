@@ -116,14 +116,18 @@ let csi_comma = ';'
 
 (* Move cursor to the top left then clear screen after the cursor *)
 let clear_screen = csi [ '1'; csi_comma; '1'; 'H' ] @ csi [ '0'; 'J' ]
+let show_cursor = csi [ '?'; '2'; '5'; 'h' ]
+let hide_cursor = csi [ '?'; '2'; '5'; 'l' ]
+let save_cursor = csi [ 's' ]
+let restore_cursor = csi [ 'u' ]
 
 (* Try to move cursor to the bottom-rightest possible then query the actual cursor position *)
 let ask_dimensions =
-  csi [ '9'; '9'; '9'; csi_comma; '9'; '9'; '9'; 'H' ] @ csi [ '6'; 'n' ]
+  save_cursor
+  @ csi [ '9'; '9'; '9'; csi_comma; '9'; '9'; '9'; 'H' ]
+  @ csi [ '6'; 'n' ]
+  @ restore_cursor
 ;;
-
-let show_cursor = csi [ '?'; '2'; '5'; 'h' ]
-let hide_cursor = csi [ '?'; '2'; '5'; 'l' ]
 
 module type Style_Default = sig
   val default_foreground_color : color
