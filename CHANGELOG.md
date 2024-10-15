@@ -1,3 +1,10 @@
+## Current
+### Rebase
+#### Changes
+- Switching between commit navigation and file navigation is now done with TAB key instead of **:f** command
+#### Bugfixes
+- Cursor is no longer blinking when editing a message or typing in CLI
+
 ## 0.6.0
 ### Rebase
 #### Features

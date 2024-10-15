@@ -500,7 +500,6 @@ module App (Info : Rebase_info_external) :
   let update_cli_command cmd model =
     match String.trim cmd |> String.split_on_char ' ' with
     | [ ":q" ] -> exit_with model
-    | [ ":f" ] -> navigate_files model, []
     | [ ":abort" ] -> exit_with init
     | [ ":inline" ] -> inline model, []
     | [ ":pretty" ] ->
@@ -529,6 +528,7 @@ module App (Info : Rebase_info_external) :
     | Navigate_files i, Up -> switch_mode (Navigate_files (max 0 (i - 1))) model, []
     | Navigate_files i, Down ->
       switch_mode (Navigate_files (min (modified_count model - 1) (i + 1))) model, []
+    | Navigate_files _, Char '\t' -> switch_mode Navigate model, []
     | Navigate, Right -> switch_mode Move model, []
     | Move, Up -> move_up model, []
     | Move, Down -> move_down model, []
@@ -545,6 +545,7 @@ module App (Info : Rebase_info_external) :
     | Cli s, Left -> { model with mode = Cli (Editing_line.left s) }, []
     | Cli s, Right -> { model with mode = Cli (Editing_line.right s) }, []
     | Cli s, Enter -> update_cli_command (Editing_line.to_string s) model
+    | [%cross_match (Navigate, Move), Char '\t'] -> navigate_files model, []
     | [%cross_match (Navigate, Move, Navigate_files [%cross_any]), Char ':'] ->
       switch_mode (Cli (Editing_line.init ":")) model, []
     | [%cross_match

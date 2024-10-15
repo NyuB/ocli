@@ -419,14 +419,15 @@ let%expect_test "Slide entry list to fit terminal rows" =
     |}]
 ;;
 
+module Many_modified_files = Test_Info_with_modified (struct
+    let many_files = List.init 20 (fun i -> Printf.sprintf "file_at_row_%02d" (i + 1))
+    let modified = List.map (fun e -> e.sha1, many_files) test_entries
+  end)
+
+module App_many_modified_files = App (Many_modified_files)
+
 let%expect_test "Crop modified list to fit terminal rows" =
-  let module Info =
-    Test_Info_with_modified (struct
-      let many_files = List.init 20 (fun i -> Printf.sprintf "file_at_row_%02d" (i + 1))
-      let modified = List.map (fun e -> e.sha1, many_files) test_entries
-    end)
-  in
-  let module A = App (Info) in
+  let module A = App_many_modified_files in
   let print_render = Tty_testing.print_render_app A.view
   and play_events = play_events_app A.update in
   let size = Tty.{ col = 999; row = 15 } in
@@ -472,5 +473,35 @@ let%expect_test "Crop modified list to fit terminal rows" =
                  │ file_at_row_16
                  │ file_at_row_17
                  │ file_at_row_18
+    |}]
+;;
+
+let%expect_test "Modified files tab" =
+  let module A = App_many_modified_files in
+  let size = Tty.{ col = 999; row = 5 } in
+  let print_render = Tty_testing.print_render_app A.view
+  and play_events = play_events_app A.update in
+  Tty_testing.Test_Platform.set_dimensions size;
+  let enter_file_tab_mode = Tty.[ Char '\t' ]
+  and slide_many_files_down = Tty.[ Down; Down; Down; Down; Down; Down ] in
+  let slided_file_tab =
+    play_events
+      (Tty.[ Size { size with row = 5 } ] @ enter_file_tab_mode @ slide_many_files_down)
+      App_many_modified_files.init
+  in
+  print_render slided_file_tab;
+  [%expect
+    {|
+    pick: 1a 'A' │ file_at_row_06
+    pick: 2b 'B' │ file_at_row_07
+    pick: 3c 'C' │ file_at_row_08
+    |}];
+  let back_to_navigation = play_events [ Char '\t' ] slided_file_tab in
+  print_render back_to_navigation;
+  [%expect
+    {|
+    pick: 1a 'A' │ file_at_row_01
+    pick: 2b 'B' │ file_at_row_02
+    pick: 3c 'C' │ file_at_row_03
     |}]
 ;;
