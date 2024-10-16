@@ -186,6 +186,44 @@ module App (Info : Rebase_info_external) :
 
   type command = rebase_app_command
 
+  module Appearance = struct
+    type symbols =
+      { up_arrow_prefix : string
+      ; down_arrow_prefix : string
+      ; up_and_down_arrow_prefix : string
+      ; fixup_prefix : string
+      ; panel_separator : string
+      ; panel_bot_left_corner : string
+      }
+
+    type t =
+      { symbols : symbols
+      ; selection_color : Tty.color
+      }
+
+    let pretty_symbols : symbols =
+      { up_arrow_prefix = "▲  "
+      ; down_arrow_prefix = " ▼ "
+      ; up_and_down_arrow_prefix = "▲▼ "
+      ; fixup_prefix = " ∟ "
+      ; panel_separator = " │ "
+      ; panel_bot_left_corner = " └ "
+      }
+    ;;
+
+    let raw_symbols : symbols =
+      { up_arrow_prefix = "^  "
+      ; down_arrow_prefix = " v "
+      ; up_and_down_arrow_prefix = "^v "
+      ; fixup_prefix = " |_"
+      ; panel_separator = " | "
+      ; panel_bot_left_corner = " |_"
+      }
+    ;;
+
+    let with_selection_color selection_color t = { t with selection_color }
+  end
+
   type mode =
     | Navigate (** Navigating between rebase entries *)
     | Navigate_files of int (** Navigating between modified files *)
@@ -194,68 +232,138 @@ module App (Info : Rebase_info_external) :
     (** [Rename new_msg] represents an ongoing renaming with message [new_msg] a given rebase entry, differs from [Reword] in that it will actually rename the commit without requiring further user action. *)
     | Cli of Editing_line.t (** [Cli s] represents the ongoing typing of a command *)
 
-  type symbols =
-    { up_arrow_prefix : string
-    ; down_arrow_prefix : string
-    ; up_and_down_arrow_prefix : string
-    ; fixup_prefix : string
-    ; panel_separator : string
-    ; panel_bot_left_corner : string
-    }
+  module Model : sig
+    type t =
+      { entries : rebase_entry array
+      ; cursor : int
+      ; mode : mode
+      ; dimensions : Tty.position
+      ; appearance : Appearance.t
+      }
 
-  type appearance =
-    { symbols : symbols
-    ; selection_color : Tty.color
-    }
+    val entry_count : t -> int
+    val is_navigate_files : t -> bool
+    val current_sha1 : t -> string
+    val move_up : t -> t
+    val move_down : t -> t
+    val set_fixup : t -> fixup_kind -> t
+    val set_drop : t -> t
+    val set_pick : t -> t
+    val set_rename : t -> string -> t
+    val switch_explode : t -> t
+    val switch_mode : mode -> t -> t
+    val with_appearance : Appearance.t -> t -> t
+    val renaming : t -> Editing_line.t -> t
+    val current_message : t -> string
+  end = struct
+    type t =
+      { entries : rebase_entry array
+      ; cursor : int (** The current selected entry index within [entries] *)
+      ; mode : mode (** Crurrent [mode] *)
+      ; dimensions : Tty.position (** Current dimensions of the display *)
+      ; appearance : Appearance.t (** Appearance config *)
+      }
 
-  type model =
-    { entries : rebase_entry array
-    ; cursor : int (** The current selected entry index within [entries] *)
-    ; mode : mode (** Crurrent [mode] *)
-    ; dimensions : Tty.position (** Current dimensions of the display *)
-    ; appearance : appearance (** Appearance config *)
-    }
+    let entry_count model = Array.length model.entries
 
-  let pretty_symbols : symbols =
-    { up_arrow_prefix = "▲  "
-    ; down_arrow_prefix = " ▼ "
-    ; up_and_down_arrow_prefix = "▲▼ "
-    ; fixup_prefix = " ∟ "
-    ; panel_separator = " │ "
-    ; panel_bot_left_corner = " └ "
-    }
-  ;;
+    let is_navigate_files model =
+      match model.mode with
+      | Navigate_files _ -> true
+      | _ -> false
+    ;;
 
-  let raw_symbols : symbols =
-    { up_arrow_prefix = "^  "
-    ; down_arrow_prefix = " v "
-    ; up_and_down_arrow_prefix = "^v "
-    ; fixup_prefix = " |_"
-    ; panel_separator = " | "
-    ; panel_bot_left_corner = " |_"
-    }
-  ;;
+    let current_entry model = model.entries.(model.cursor)
+    let current_sha1 model = (current_entry model).sha1
+
+    let swap arr a b =
+      let copy = Array.copy arr in
+      let a_copy = arr.(a) in
+      copy.(a) <- arr.(b);
+      copy.(b) <- a_copy;
+      copy
+    ;;
+
+    let swap_entries model ~source_cursor ~target_cursor =
+      { model with
+        cursor = target_cursor
+      ; entries = swap model.entries source_cursor target_cursor
+      }
+    ;;
+
+    let entry_at_cursor model cursor = model.entries.(cursor)
+
+    let entry_at_cursor_is_fixup model cursor =
+      is_fixup (entry_at_cursor model cursor).command
+    ;;
+
+    let move_up ({ cursor; _ } as model) =
+      if cursor <= 0 || (cursor = 1 && entry_at_cursor_is_fixup model cursor)
+      then model
+      else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor - 1)
+    ;;
+
+    let move_down ({ cursor; entries; _ } as model) =
+      if cursor >= Array.length entries - 1
+         || (cursor = 0 && entry_at_cursor_is_fixup model (cursor + 1))
+      then model
+      else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor + 1)
+    ;;
+
+    let set_rebase_command ({ cursor; entries; _ } as model) cmd =
+      let current = entries.(cursor) in
+      let copy = Array.copy entries in
+      copy.(cursor) <- { current with command = cmd };
+      { model with entries = copy }
+    ;;
+
+    let set_fixup model fixup_kind =
+      if model.cursor = 0 then model else set_rebase_command model (Fixup fixup_kind)
+    ;;
+
+    let set_drop model = set_rebase_command model Drop
+    let set_pick model = set_rebase_command model Drop
+
+    let set_rename ({ cursor; entries; _ } as model) (name : string) =
+      let current = entries.(cursor) in
+      let copy = Array.copy entries in
+      copy.(cursor) <- { current with custom = Rename name };
+      { model with entries = copy; mode = Navigate }
+    ;;
+
+    let switch_explode ({ cursor; entries; _ } as model) =
+      let current = entries.(cursor) in
+      let copy = Array.copy entries in
+      copy.(cursor)
+      <- { current with custom = (if current.custom = Explode then Nothing else Explode) };
+      { model with entries = copy; mode = Navigate }
+    ;;
+
+    let switch_mode mode model = { model with mode }
+    let with_appearance appearance model = { model with appearance }
+    let renaming model s = switch_mode (Rename s) model
+
+    let current_message model =
+      match current_entry model with
+      | { custom = Rename s; _ } -> s
+      | { message; _ } -> message
+    ;;
+  end
+
+  type model = Model.t
 
   let init =
-    { entries = Array.of_list Info.entries
-    ; cursor = 0
-    ; mode = Navigate
-    ; dimensions = { row = 25; col = 80 }
-    ; appearance = { symbols = pretty_symbols; selection_color = Tty.Cyan }
-    }
+    Model.
+      { entries = Array.of_list Info.entries
+      ; cursor = 0
+      ; mode = Navigate
+      ; dimensions = { row = 25; col = 80 }
+      ; appearance = { symbols = Appearance.pretty_symbols; selection_color = Tty.Cyan }
+      }
   ;;
 
-  let entry_count model = Array.length model.entries
-
-  let is_navigate_files model =
-    match model.mode with
-    | Navigate_files _ -> true
-    | _ -> false
-  ;;
-
-  let move_prefix model =
+  let move_prefix (model : model) =
     let is_first = model.cursor = 0
-    and is_last = model.cursor = entry_count model - 1 in
+    and is_last = model.cursor = Model.entry_count model - 1 in
     let symbols = model.appearance.symbols in
     if is_first && is_last
     then "   "
@@ -266,7 +374,7 @@ module App (Info : Rebase_info_external) :
     else symbols.up_and_down_arrow_prefix
   ;;
 
-  let fixup_prefix model = model.appearance.symbols.fixup_prefix
+  let fixup_prefix (model : model) = model.appearance.symbols.fixup_prefix
 
   let renaming_entry_component { command; sha1; _ } editing =
     let style = Tty.Default_style.default_style in
@@ -313,11 +421,9 @@ module App (Info : Rebase_info_external) :
     | Rename s -> renaming_entry_component e s
   ;;
 
-  let current_entry model = model.entries.(model.cursor)
-  let current_sha1 model = (current_entry model).sha1
-  let modified_count model = List.length (Info.modified_files (current_sha1 model))
+  let modified_count model = List.length (Info.modified_files (Model.current_sha1 model))
 
-  let cli_view model : Tty.ansi_view_item list Components.component =
+  let cli_view (model : model) : Tty.ansi_view_item list Components.component =
     let style = Tty.Default_style.default_style in
     match model.mode with
     | Cli s ->
@@ -330,7 +436,7 @@ module App (Info : Rebase_info_external) :
     |> Components.to_ansi_view_component Tty.Default_style.default_style
   ;;
 
-  let panel_separator model =
+  let panel_separator (model : model) =
     let files_count = modified_count model in
     let symbols = model.appearance.symbols in
     if files_count = 0
@@ -344,7 +450,7 @@ module App (Info : Rebase_info_external) :
       |> Column.component
   ;;
 
-  let right_panel_view model =
+  let right_panel_view (model : model) =
     let selected_index =
       match model.mode with
       | Navigate_files i -> Some i
@@ -359,7 +465,7 @@ module App (Info : Rebase_info_external) :
       else Tty.Default_style.default_style
     in
     let file_entries =
-      Info.modified_files (current_sha1 model)
+      Info.modified_files (Model.current_sha1 model)
       |> Array.of_list
       |> Array.map Components.Text_line.component
     in
@@ -373,7 +479,7 @@ module App (Info : Rebase_info_external) :
     Column_sliding.component (rebase_entry_component model) model.entries model.cursor
   ;;
 
-  let view model : Tty.ansi_view_item list =
+  let view (model : model) : Tty.ansi_view_item list =
     let constraints =
       Components.Constraints.
         { col_start = 1
@@ -382,7 +488,9 @@ module App (Info : Rebase_info_external) :
         ; height = model.dimensions.row
         }
     in
-    let left_portion, right_portion = if is_navigate_files model then 1, 7 else 6, 2 in
+    let left_portion, right_portion =
+      if Model.is_navigate_files model then 1, 7 else 6, 2
+    in
     let left_right_panel =
       Row_divided.component
         [ left_panel_view model, left_portion
@@ -401,90 +509,14 @@ module App (Info : Rebase_info_external) :
     v
   ;;
 
-  let swap arr a b =
-    let copy = Array.copy arr in
-    let a_copy = arr.(a) in
-    copy.(a) <- arr.(b);
-    copy.(b) <- a_copy;
-    copy
-  ;;
-
-  let swap_entries model ~source_cursor ~target_cursor =
-    { model with
-      cursor = target_cursor
-    ; entries = swap model.entries source_cursor target_cursor
-    }
-  ;;
-
-  let entry_at_cursor model cursor = model.entries.(cursor)
-
-  let entry_at_cursor_is_fixup model cursor =
-    is_fixup (entry_at_cursor model cursor).command
-  ;;
-
-  let move_up ({ cursor; _ } as model) =
-    if cursor <= 0 || (cursor = 1 && entry_at_cursor_is_fixup model cursor)
-    then model
-    else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor - 1)
-  ;;
-
-  let move_down ({ cursor; entries; _ } as model) =
-    if cursor >= Array.length entries - 1
-       || (cursor = 0 && entry_at_cursor_is_fixup model (cursor + 1))
-    then model
-    else swap_entries model ~source_cursor:cursor ~target_cursor:(cursor + 1)
-  ;;
-
-  let set_rebase_command ({ cursor; entries; _ } as model) cmd =
-    let current = entries.(cursor) in
-    let copy = Array.copy entries in
-    copy.(cursor) <- { current with command = cmd };
-    { model with entries = copy }
-  ;;
-
-  let set_fixup model fixup_kind =
-    if model.cursor = 0 then model else set_rebase_command model (Fixup fixup_kind)
-  ;;
-
-  let set_name ({ cursor; entries; _ } as model) editing_name =
-    let name = Editing_line.to_string editing_name in
-    let current = entries.(cursor) in
-    let copy = Array.copy entries in
-    copy.(cursor) <- { current with custom = Rename name };
-    { model with entries = copy; mode = Navigate }
-  ;;
-
-  let switch_explode ({ cursor; entries; _ } as model) =
-    let current = entries.(cursor) in
-    let copy = Array.copy entries in
-    copy.(cursor)
-    <- { current with custom = (if current.custom = Explode then Nothing else Explode) };
-    { model with entries = copy; mode = Navigate }
-  ;;
-
-  let exit_with model =
+  let exit_with (model : model) =
     ( model
     , [ Exit_with
           (Array.to_list model.entries |> git_todo_of_rebase_entries Info.modified_files)
       ] )
   ;;
 
-  let switch_mode mode model = { model with mode }
-  let with_appearance appearance model = { model with appearance }
-
-  let with_selection_color selection_color model =
-    with_appearance { model.appearance with selection_color } model
-  ;;
-
-  let renaming_with model s = { model with mode = Rename s }
-
-  let current_message model =
-    match current_entry model with
-    | { custom = Rename s; _ } -> s
-    | { message; _ } -> message
-  ;;
-
-  let inline model =
+  let inline (model : model) =
     let lines =
       git_todo_of_rebase_entries Info.modified_files (Array.to_list model.entries)
     in
@@ -492,23 +524,30 @@ module App (Info : Rebase_info_external) :
     { model with mode = Navigate; entries = new_entries }
   ;;
 
-  let navigate_files model =
-    let files = Info.modified_files (current_sha1 model) in
+  let navigate_files (model : model) =
+    let files = Info.modified_files (Model.current_sha1 model) in
     if List.is_empty files then model else { model with mode = Navigate_files 0 }
   ;;
 
-  let update_cli_command cmd model =
+  let update_cli_command cmd (Model.{ appearance; _ } as model) =
+    let with_selection_color color model =
+      Model.with_appearance (Appearance.with_selection_color color appearance) model
+    in
     match String.trim cmd |> String.split_on_char ' ' with
     | [ ":q" ] -> exit_with model
     | [ ":abort" ] -> exit_with init
     | [ ":inline" ] -> inline model, []
     | [ ":pretty" ] ->
-      ( { model with appearance = { model.appearance with symbols = pretty_symbols } }
-        |> switch_mode Navigate
+      ( { model with
+          appearance = { model.appearance with symbols = Appearance.pretty_symbols }
+        }
+        |> Model.switch_mode Navigate
       , [] )
     | [ ":raw" ] ->
-      ( { model with appearance = { model.appearance with symbols = raw_symbols } }
-        |> switch_mode Navigate
+      ( { model with
+          appearance = { model.appearance with symbols = Appearance.raw_symbols }
+        }
+        |> Model.switch_mode Navigate
       , [] )
     | [ ":color"; "red" ] -> with_selection_color Red model, []
     | [ ":color"; "green" ] -> with_selection_color Green model, []
@@ -517,28 +556,30 @@ module App (Info : Rebase_info_external) :
     | [ ":color"; "magenta" ] -> with_selection_color Magenta model, []
     | [ ":color"; "yellow" ] -> with_selection_color Yellow model, []
     | [ ":color"; "white" ] -> with_selection_color White model, []
-    | _ -> switch_mode Navigate model, []
+    | _ -> Model.switch_mode Navigate model, []
   ;;
 
-  let update model (event : Tty.ansi_event) =
+  let update (model : model) (event : Tty.ansi_event) =
     match model.mode, event with
     | Navigate, Up -> { model with cursor = max 0 (model.cursor - 1) }, []
     | Navigate, Down ->
-      { model with cursor = min (entry_count model - 1) (model.cursor + 1) }, []
-    | Navigate_files i, Up -> switch_mode (Navigate_files (max 0 (i - 1))) model, []
+      { model with cursor = min (Model.entry_count model - 1) (model.cursor + 1) }, []
+    | Navigate_files i, Up -> Model.switch_mode (Navigate_files (max 0 (i - 1))) model, []
     | Navigate_files i, Down ->
-      switch_mode (Navigate_files (min (modified_count model - 1) (i + 1))) model, []
-    | Navigate_files _, Char '\t' -> switch_mode Navigate model, []
-    | Navigate, Right -> switch_mode Move model, []
-    | Move, Up -> move_up model, []
-    | Move, Down -> move_down model, []
-    | Move, Left -> switch_mode Navigate model, []
-    | Rename name, Enter -> set_name model name, []
-    | Rename s, Char c -> renaming_with model (Editing_line.append_char c s), []
-    | Rename s, Del -> renaming_with model (Editing_line.del s), []
-    | Rename s, Suppr -> renaming_with model (Editing_line.suppr s), []
-    | Rename s, Left -> renaming_with model (Editing_line.left s), []
-    | Rename s, Right -> renaming_with model (Editing_line.right s), []
+      ( Model.switch_mode (Navigate_files (min (modified_count model - 1) (i + 1))) model
+      , [] )
+    | Navigate_files _, Char '\t' -> Model.switch_mode Navigate model, []
+    | Navigate, Right -> Model.switch_mode Move model, []
+    | Move, Up -> Model.move_up model, []
+    | Move, Down -> Model.move_down model, []
+    | Move, Left -> Model.switch_mode Navigate model, []
+    | Rename editing_name, Enter ->
+      Model.set_rename model (Editing_line.to_string editing_name), []
+    | Rename s, Char c -> Model.renaming model (Editing_line.append_char c s), []
+    | Rename s, Del -> Model.renaming model (Editing_line.del s), []
+    | Rename s, Suppr -> Model.renaming model (Editing_line.suppr s), []
+    | Rename s, Left -> Model.renaming model (Editing_line.left s), []
+    | Rename s, Right -> Model.renaming model (Editing_line.right s), []
     | Cli s, Char c -> { model with mode = Cli (Editing_line.append_char c s) }, []
     | Cli s, Del -> { model with mode = Cli (Editing_line.del s) }, []
     | Cli s, Suppr -> { model with mode = Cli (Editing_line.suppr s) }, []
@@ -547,21 +588,22 @@ module App (Info : Rebase_info_external) :
     | Cli s, Enter -> update_cli_command (Editing_line.to_string s) model
     | [%cross_match (Navigate, Move), Char '\t'] -> navigate_files model, []
     | [%cross_match (Navigate, Move, Navigate_files [%cross_any]), Char ':'] ->
-      switch_mode (Cli (Editing_line.init ":")) model, []
+      Model.switch_mode (Cli (Editing_line.init ":")) model, []
     | [%cross_match
         (Rename [%cross_any], Cli [%cross_any], Navigate_files [%cross_any]), Esc] ->
-      switch_mode Navigate model, []
+      Model.switch_mode Navigate model, []
     | [%cross_match (Navigate, Move), (Char 'd', Char 'D', Del, Suppr)] ->
-      set_rebase_command model Drop, []
-    | [%cross_match (Navigate, Move), Char 'f'] -> set_fixup model Discard_message, []
-    | [%cross_match (Navigate, Move), Char 'F'] -> set_fixup model Keep_message, []
-    | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] ->
-      set_rebase_command model Pick, []
+      Model.set_drop model, []
+    | [%cross_match (Navigate, Move), Char 'f'] ->
+      Model.set_fixup model Discard_message, []
+    | [%cross_match (Navigate, Move), Char 'F'] -> Model.set_fixup model Keep_message, []
+    | [%cross_match (Navigate, Move), (Char 'p', Char 'P')] -> Model.set_pick model, []
     | [%cross_match (Navigate, Move), Char 'r'] ->
-      renaming_with model (Editing_line.init @@ current_message model), []
+      Model.renaming model (Editing_line.init @@ Model.current_message model), []
     | [%cross_match (Navigate, Move), Char 'R'] ->
-      renaming_with model @@ Editing_line.empty, []
-    | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] -> switch_explode model, []
+      Model.renaming model @@ Editing_line.empty, []
+    | [%cross_match (Navigate, Move), (Char 'x', Char 'X')] ->
+      Model.switch_explode model, []
     | _, Size dimensions -> { model with dimensions }, []
     | _ -> model, []
   ;;
