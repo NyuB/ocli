@@ -351,6 +351,160 @@ module App (Info : Rebase_info_external) :
 
   type model = Model.t
 
+  let modified_count model = List.length (Info.modified_files (Model.current_sha1 model))
+
+  module View : sig
+    val view : model -> Tty.ansi_view_item list
+  end = struct
+    let move_prefix (model : model) =
+      let is_first = model.cursor = 0
+      and is_last = model.cursor = Model.entry_count model - 1 in
+      let symbols = model.appearance.symbols in
+      if is_first && is_last
+      then "   "
+      else if is_first
+      then symbols.down_arrow_prefix
+      else if is_last
+      then symbols.up_arrow_prefix
+      else symbols.up_and_down_arrow_prefix
+    ;;
+
+    let fixup_prefix (model : model) = model.appearance.symbols.fixup_prefix
+
+    let renaming_entry_component { command; sha1; _ } editing =
+      let style = Tty.Default_style.default_style in
+      let left =
+        Printf.sprintf "%s: %s '" (string_of_rebase_command command) sha1
+        |> Components.Text_line.component
+        |> Components.to_ansi_view_component style
+      and right =
+        "'(renaming)"
+        |> Components.Text_line.component
+        |> Components.to_ansi_view_component style
+      and editing_component =
+        Editing_line.component editing
+        |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
+      in
+      Row.component [ left; editing_component; right ]
+    ;;
+
+    let rebase_entry_component (model : model) (i : int) (e : rebase_entry)
+      : Tty.ansi_view_item list Components.component
+      =
+      let base_style =
+        { Tty.Default_style.default_style with striked = e.command = Drop }
+      in
+      let style =
+        if i = model.cursor
+        then { base_style with bg_color = Some model.appearance.selection_color }
+        else base_style
+      in
+      let prefix = if is_fixup e.command then fixup_prefix model else "" in
+      match model.mode with
+      | Navigate | Cli _ | Navigate_files _ ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+        |> Components.to_ansi_view_component style
+      | Move when model.cursor <> i ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+        |> Components.to_ansi_view_component style
+      | Rename _ when model.cursor <> i ->
+        Components.Text_line.component (prefix ^ string_of_rebase_entry e)
+        |> Components.to_ansi_view_component style
+      | Move ->
+        Components.Text_line.component (move_prefix model ^ string_of_rebase_entry e)
+        |> Components.to_ansi_view_component style
+      | Rename s -> renaming_entry_component e s
+    ;;
+
+    let cli_view (model : model) : Tty.ansi_view_item list Components.component =
+      let style = Tty.Default_style.default_style in
+      match model.mode with
+      | Cli s ->
+        Editing_line.component s |> Components.positioned_to_ansi_view_component style
+      | _ -> Components.Text_line.component "" |> Components.to_ansi_view_component style
+    ;;
+
+    let cli_separator =
+      Components.Text_line.component ""
+      |> Components.to_ansi_view_component Tty.Default_style.default_style
+    ;;
+
+    let panel_separator (model : model) =
+      let files_count = modified_count model in
+      let symbols = model.appearance.symbols in
+      if files_count = 0
+      then Column.component []
+      else
+        List.init files_count (fun _ -> symbols.panel_separator)
+        @ [ symbols.panel_bot_left_corner ]
+        |> List.map (fun l ->
+          Components.Text_line.component l
+          |> Components.to_ansi_view_component Tty.Default_style.default_style)
+        |> Column.component
+    ;;
+
+    let right_panel_view (model : model) =
+      let selected_index =
+        match model.mode with
+        | Navigate_files i -> Some i
+        | _ -> None
+      in
+      let style i =
+        if selected_index = Some i
+        then
+          { Tty.Default_style.default_style with
+            bg_color = Some model.appearance.selection_color
+          }
+        else Tty.Default_style.default_style
+      in
+      let file_entries =
+        Info.modified_files (Model.current_sha1 model)
+        |> Array.of_list
+        |> Array.map Components.Text_line.component
+      in
+      Column_sliding.component
+        (fun i e -> e |> Components.to_ansi_view_component (style i))
+        file_entries
+        (Option.value ~default:0 selected_index)
+    ;;
+
+    let left_panel_view model =
+      Column_sliding.component (rebase_entry_component model) model.entries model.cursor
+    ;;
+
+    let view (model : model) : Tty.ansi_view_item list =
+      let constraints =
+        Components.Constraints.
+          { col_start = 1
+          ; row_start = 1
+          ; width = model.dimensions.col
+          ; height = model.dimensions.row
+          }
+      in
+      let left_portion, right_portion =
+        if Model.is_navigate_files model then 1, 7 else 6, 2
+      in
+      let left_right_panel =
+        Row_divided.component
+          [ left_panel_view model, left_portion
+          ; panel_separator model, 1
+          ; right_panel_view model, right_portion
+          ]
+      in
+      let full_screen =
+        Column_divided.component
+          [ left_right_panel, model.dimensions.row - 2
+          ; cli_separator, 1
+          ; cli_view model, 1
+          ]
+      in
+      let v, _ = full_screen constraints in
+      v
+    ;;
+  end
+
+  let view = View.view
+
   let init =
     Model.
       { entries = Array.of_list Info.entries
@@ -359,154 +513,6 @@ module App (Info : Rebase_info_external) :
       ; dimensions = { row = 25; col = 80 }
       ; appearance = { symbols = Appearance.pretty_symbols; selection_color = Tty.Cyan }
       }
-  ;;
-
-  let move_prefix (model : model) =
-    let is_first = model.cursor = 0
-    and is_last = model.cursor = Model.entry_count model - 1 in
-    let symbols = model.appearance.symbols in
-    if is_first && is_last
-    then "   "
-    else if is_first
-    then symbols.down_arrow_prefix
-    else if is_last
-    then symbols.up_arrow_prefix
-    else symbols.up_and_down_arrow_prefix
-  ;;
-
-  let fixup_prefix (model : model) = model.appearance.symbols.fixup_prefix
-
-  let renaming_entry_component { command; sha1; _ } editing =
-    let style = Tty.Default_style.default_style in
-    let left =
-      Printf.sprintf "%s: %s '" (string_of_rebase_command command) sha1
-      |> Components.Text_line.component
-      |> Components.to_ansi_view_component style
-    and right =
-      "'(renaming)"
-      |> Components.Text_line.component
-      |> Components.to_ansi_view_component style
-    and editing_component =
-      Editing_line.component editing
-      |> Components.positioned_to_ansi_view_component Tty.Default_style.default_style
-    in
-    Row.component [ left; editing_component; right ]
-  ;;
-
-  let rebase_entry_component (model : model) (i : int) (e : rebase_entry)
-    : Tty.ansi_view_item list Components.component
-    =
-    let base_style =
-      { Tty.Default_style.default_style with striked = e.command = Drop }
-    in
-    let style =
-      if i = model.cursor
-      then { base_style with bg_color = Some model.appearance.selection_color }
-      else base_style
-    in
-    let prefix = if is_fixup e.command then fixup_prefix model else "" in
-    match model.mode with
-    | Navigate | Cli _ | Navigate_files _ ->
-      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      |> Components.to_ansi_view_component style
-    | Move when model.cursor <> i ->
-      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      |> Components.to_ansi_view_component style
-    | Rename _ when model.cursor <> i ->
-      Components.Text_line.component (prefix ^ string_of_rebase_entry e)
-      |> Components.to_ansi_view_component style
-    | Move ->
-      Components.Text_line.component (move_prefix model ^ string_of_rebase_entry e)
-      |> Components.to_ansi_view_component style
-    | Rename s -> renaming_entry_component e s
-  ;;
-
-  let modified_count model = List.length (Info.modified_files (Model.current_sha1 model))
-
-  let cli_view (model : model) : Tty.ansi_view_item list Components.component =
-    let style = Tty.Default_style.default_style in
-    match model.mode with
-    | Cli s ->
-      Editing_line.component s |> Components.positioned_to_ansi_view_component style
-    | _ -> Components.Text_line.component "" |> Components.to_ansi_view_component style
-  ;;
-
-  let cli_separator =
-    Components.Text_line.component ""
-    |> Components.to_ansi_view_component Tty.Default_style.default_style
-  ;;
-
-  let panel_separator (model : model) =
-    let files_count = modified_count model in
-    let symbols = model.appearance.symbols in
-    if files_count = 0
-    then Column.component []
-    else
-      List.init files_count (fun _ -> symbols.panel_separator)
-      @ [ symbols.panel_bot_left_corner ]
-      |> List.map (fun l ->
-        Components.Text_line.component l
-        |> Components.to_ansi_view_component Tty.Default_style.default_style)
-      |> Column.component
-  ;;
-
-  let right_panel_view (model : model) =
-    let selected_index =
-      match model.mode with
-      | Navigate_files i -> Some i
-      | _ -> None
-    in
-    let style i =
-      if selected_index = Some i
-      then
-        { Tty.Default_style.default_style with
-          bg_color = Some model.appearance.selection_color
-        }
-      else Tty.Default_style.default_style
-    in
-    let file_entries =
-      Info.modified_files (Model.current_sha1 model)
-      |> Array.of_list
-      |> Array.map Components.Text_line.component
-    in
-    Column_sliding.component
-      (fun i e -> e |> Components.to_ansi_view_component (style i))
-      file_entries
-      (Option.value ~default:0 selected_index)
-  ;;
-
-  let left_panel_view model =
-    Column_sliding.component (rebase_entry_component model) model.entries model.cursor
-  ;;
-
-  let view (model : model) : Tty.ansi_view_item list =
-    let constraints =
-      Components.Constraints.
-        { col_start = 1
-        ; row_start = 1
-        ; width = model.dimensions.col
-        ; height = model.dimensions.row
-        }
-    in
-    let left_portion, right_portion =
-      if Model.is_navigate_files model then 1, 7 else 6, 2
-    in
-    let left_right_panel =
-      Row_divided.component
-        [ left_panel_view model, left_portion
-        ; panel_separator model, 1
-        ; right_panel_view model, right_portion
-        ]
-    in
-    let full_screen =
-      Column_divided.component
-        [ left_right_panel, model.dimensions.row - 2
-        ; cli_separator, 1
-        ; cli_view model, 1
-        ]
-    in
-    let v, _ = full_screen constraints in
-    v
   ;;
 
   let exit_with (model : model) =
