@@ -8,7 +8,7 @@
 (library
  (name rebase_test_inline)
  (modules rebase_test_inline)
- (libraries rebase tea tty tty_testing)
+ (libraries qol rebase tea tty tty_testing)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))

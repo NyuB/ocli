@@ -465,7 +465,7 @@ module App (Info : Rebase_info_external) :
       Column_sliding.component
         (fun i e -> e |> Components.to_ansi_view_component (style i))
         file_entries
-        (Option.value ~default:0 selected_index)
+        (selected_index |?: 0)
     ;;
 
     let left_panel_view model =
@@ -498,8 +498,7 @@ module App (Info : Rebase_info_external) :
           ; cli_view model, 1
           ]
       in
-      let v, _ = full_screen constraints in
-      v
+      first @@ full_screen constraints
     ;;
   end
 

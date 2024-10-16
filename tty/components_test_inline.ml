@@ -5,11 +5,7 @@ let top_left_constraint =
   Components.Constraints.{ row_start = 1; col_start = 1; width = 100; height = 100 }
 ;;
 
-let view component constraints =
-  let v, _ = component constraints in
-  v
-;;
-
+let view component constraints = Qol.first @@ component constraints
 let print_render_to_left component = print_render @@ view component top_left_constraint
 
 let default_styled component =

@@ -55,7 +55,7 @@ let opt_default_none =
   ( "use default if None"
   , fun () ->
       let default = "Default" in
-      let actual = None |?: lazy default in
+      let actual = None |?? lazy default in
       Alcotest.(check string) "Expected default to be used" default actual )
 ;;
 
@@ -63,7 +63,7 @@ let opt_default_laziness =
   ( "do not force default if Some"
   , fun () ->
       let updated = ref false in
-      let () = Some () |?: lazy (updated := true) in
+      let () = Some () |?? lazy (updated := true) in
       Alcotest.(check bool) "Expected updated not to have been executed" false !updated )
 ;;
 

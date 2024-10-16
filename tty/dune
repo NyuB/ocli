@@ -11,7 +11,7 @@
 (library
  (name components_test_inline)
  (modules components_test_inline)
- (libraries components tty tty_testing)
+ (libraries components qol tty tty_testing)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))
@@ -27,4 +27,4 @@
 (tests
  (names tty_test components_test)
  (modules tty_test components_test)
- (libraries alcotest components tty))
+ (libraries alcotest components qol tty))

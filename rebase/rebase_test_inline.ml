@@ -1,4 +1,5 @@
 open Rebase
+open Qol
 
 let test_entries = [ "pick 1a A"; "pick 2b B"; "pick 3c C"; "pick 4d D" ] |> parse_entries
 
@@ -19,7 +20,7 @@ struct
     List.find_map
       (fun (ref, files) -> if String.equal sha1 ref then Some files else None)
       M.modified
-    |> Option.value ~default:[]
+    |?: []
   ;;
 end
 
@@ -311,7 +312,7 @@ let%expect_test "Crop commit messages, CLI and file names" =
         [ "2b", [ "com/compagny/root/package/AbstractEntityBuilderFactoryVisitor.java" ]
         ; "3c", [ "ok/ok.ml" ]
         ]
-      |> Option.value ~default:[]
+      |?: []
     ;;
   end
   in

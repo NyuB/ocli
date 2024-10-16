@@ -121,8 +121,7 @@ let view row_start col_start width t =
   let component =
     Editing_line.component t |> Components.positioned_to_ansi_view_component test_style
   in
-  let v, _ = component { row_start; col_start; height = 1; width } in
-  v
+  Qol.first @@ component { row_start; col_start; height = 1; width }
 ;;
 
 let view_item_kind_testable : Tty.ansi_view_item_kind Alcotest.testable =

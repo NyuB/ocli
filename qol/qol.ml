@@ -45,11 +45,12 @@ end
 
 let first (a, _) = a
 
-let ( |?: ) opt lazy_default =
+let ( |?? ) opt lazy_default =
   match opt with
   | None -> Lazy.force lazy_default
   | Some v -> v
 ;;
 
+let ( |?: ) opt default = Option.value ~default opt
 let ( |? ) f opt = Option.map opt f
 let ( |?* ) f opt = Option.bind f opt
