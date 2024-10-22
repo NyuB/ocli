@@ -244,6 +244,53 @@ let%expect_test "Display modified files along entries" =
     |}]
 ;;
 
+let%expect_test "Exploding commits" =
+  let module Info : Rebase_info_external =
+    Test_Info_with_modified (struct
+      let modified = [ "1a", [ "1.c"; "2.c"; "3.c"; "4.c"; "5.c"; "6.c"; "7.c" ] ]
+    end)
+  in
+  let module A = App (Info) in
+  let print_render = Tty_testing.print_render_app A.view
+  and play_events = play_events_app A.update in
+  print_render A.init;
+  [%expect
+    {|
+    pick: 1a 'A' │ 1.c
+    pick: 2b 'B' │ 2.c
+    pick: 3c 'C' │ 3.c
+    pick: 4d 'D' │ 4.c
+                 │ 5.c
+                 │ 6.c
+                 │ 7.c
+                 └
+    |}];
+  print_render (play_events [ Char 'x' ] A.init);
+  [%expect
+    {|
+    pick: 1a 'A' │ (x) 1.c
+    pick: 2b 'B' │ (x) 2.c
+    pick: 3c 'C' │ (x) 3.c
+    pick: 4d 'D' │ (x) 4.c
+                 │ (x) 5.c
+                 │ (x) 6.c
+                 │ (x) 7.c
+                 └
+    |}];
+  print_render (play_events [ Char 'x'; Char 'x' ] A.init);
+  [%expect
+    {|
+    pick: 1a 'A' │ 1.c
+    pick: 2b 'B' │ 2.c
+    pick: 3c 'C' │ 3.c
+    pick: 4d 'D' │ 4.c
+                 │ 5.c
+                 │ 6.c
+                 │ 7.c
+                 └
+    |}]
+;;
+
 let%expect_test "CLI mode" =
   let entered_cli = play_events [ Char ':' ] Test_App.init in
   print_render_and_cursor entered_cli;

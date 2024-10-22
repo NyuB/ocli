@@ -270,6 +270,7 @@ module App (Info : Rebase_info_external) :
     val with_appearance : Appearance.t -> t -> t
     val renaming : t -> Editing_line.t -> t
     val current_message : t -> string
+    val current_entry : t -> rebase_entry
   end = struct
     type t =
       { entries : rebase_entry array
@@ -463,6 +464,15 @@ module App (Info : Rebase_info_external) :
         |> Column.component
     ;;
 
+    let is_exploded (model : model) file =
+      let entry = Model.current_entry model in
+      StringSet.mem file entry.custom.explode
+    ;;
+
+    let line_of_file_entry model file =
+      if is_exploded model file then Printf.sprintf "(x) %s" file else file
+    ;;
+
     let right_panel_view (model : model) =
       let selected_index =
         match model.mode with
@@ -479,6 +489,7 @@ module App (Info : Rebase_info_external) :
       in
       let file_entries =
         Info.modified_files (Model.current_sha1 model)
+        |> List.map (line_of_file_entry model)
         |> Array.of_list
         |> Array.map Components.Text_line.component
       in
