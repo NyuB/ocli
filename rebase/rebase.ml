@@ -7,6 +7,7 @@ module Column_sliding = Components.Column_sliding (Components.Merge_ansi_views)
 module Row = Components.Row (Components.Merge_ansi_views)
 module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
 module Editing_line = Components.Editing_line
+module StringSet = Set.Make (String)
 
 type fixup_kind =
   | Discard_message
@@ -29,8 +30,8 @@ type rebase_command =
 type custom_command =
   | Rename of string
   (** Replace the message of a commit. Differs from git [Reword] in that it will be applied without further user actions. *)
-  | Explode
-  (** Split a single commit into one commit by modified file in the original commit *)
+  | Explode of StringSet.t
+  (** Split a single commit into the base commit + one commit by selected modified file *)
   | Nothing
 
 type rebase_entry =
@@ -64,13 +65,13 @@ let string_of_rebase_command = function
 let message_of_rebase_entry entry =
   match entry.custom with
   | Rename n -> n
-  | Nothing | Explode -> entry.message
+  | Nothing | Explode _ -> entry.message
 ;;
 
 let custom_info entry =
   match entry.custom with
   | Rename _ -> "(renamed)"
-  | Explode -> "(explode)"
+  | Explode _ -> "(explode)"
   | _ -> ""
 ;;
 
@@ -87,21 +88,39 @@ let git_todo_base { command; sha1; message; _ } =
   Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message
 ;;
 
-let git_todo_of_exploded_entry modified_files ({ sha1; message; _ } as entry) =
-  let modified = modified_files sha1 in
-  if List.is_empty modified
+let exec_initial_commit kept message =
+  if StringSet.is_empty kept
+  then []
+  else (
+    let add_each_kept =
+      List.map (fun f -> Printf.sprintf "git add %s" f) (StringSet.to_list kept)
+    in
+    let commit_kept = Printf.sprintf "git commit -m '%s'" message in
+    add_each_kept @ [ commit_kept ])
+;;
+
+let exec_each_exploded_commit exploded message =
+  List.concat_map
+    (fun f ->
+      [ Printf.sprintf "git add %s" f
+      ; Printf.sprintf "git commit -m '%s (Exploded from '%s')'" f message
+      ])
+    (StringSet.to_list exploded)
+;;
+
+let git_todo_of_exploded_entry modified_files exploded ({ sha1; message; _ } as entry) =
+  let modified = modified_files sha1 |> StringSet.of_list in
+  let kept = StringSet.diff modified exploded
+  and exploded = StringSet.inter modified exploded in
+  if StringSet.is_empty exploded
   then [ git_todo_base entry ]
   else (
-    let exec_each =
-      List.concat_map
-        (fun f ->
-          [ Printf.sprintf "git add %s" f
-          ; Printf.sprintf "git commit -m '%s (Exploded from '%s')'" f message
-          ])
-        modified
-    in
+    let exec_kept = exec_initial_commit kept message in
+    let exec_each = exec_each_exploded_commit exploded message in
     let exec =
-      Printf.sprintf "exec %s" (String.concat " && " ("git reset HEAD~" :: exec_each))
+      Printf.sprintf
+        "exec %s"
+        (String.concat " && " ("git reset HEAD~" :: (exec_kept @ exec_each)))
     in
     [ git_todo_base entry; exec ])
 ;;
@@ -116,7 +135,7 @@ let git_todo_of_rebase_entry
   | Rename new_name ->
     let exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" new_name in
     [ git_todo_base entry; exec_rename ]
-  | Explode -> git_todo_of_exploded_entry modified_files entry
+  | Explode exploded -> git_todo_of_exploded_entry modified_files exploded entry
   | Nothing -> [ git_todo_base entry ]
 ;;
 
@@ -272,6 +291,12 @@ module App (Info : Rebase_info_external) :
       | _ -> false
     ;;
 
+    let is_explode entry =
+      match entry.custom with
+      | Explode _ -> true
+      | _ -> false
+    ;;
+
     let current_entry model = model.entries.(model.cursor)
     let current_sha1 model = (current_entry model).sha1
 
@@ -334,7 +359,12 @@ module App (Info : Rebase_info_external) :
       let current = entries.(cursor) in
       let copy = Array.copy entries in
       copy.(cursor)
-      <- { current with custom = (if current.custom = Explode then Nothing else Explode) };
+      <- { current with
+           custom =
+             (if is_explode current
+              then Nothing
+              else Explode (StringSet.of_list (Info.modified_files current.sha1)))
+         };
       { model with entries = copy; mode = Navigate }
     ;;
 

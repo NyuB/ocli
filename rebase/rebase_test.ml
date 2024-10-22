@@ -1,9 +1,13 @@
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 
+module StringSet = Set.Make (String)
+
+let string_of_set s = StringSet.to_list s |> String.concat "; "
+
 let string_of_custom_command = function
   | Rebase.Rename new_name -> Printf.sprintf "Rename %s" new_name
-  | Explode -> "Explode"
+  | Explode s -> Printf.sprintf "Explode { %s }" (string_of_set s)
   | Nothing -> "Nothing"
 ;;
 
@@ -56,7 +60,11 @@ let test_exploded_entries =
       in
       let entry =
         [ Rebase.
-            { command = Pick; sha1 = "Target"; message = "message"; custom = Explode }
+            { command = Pick
+            ; sha1 = "Target"
+            ; message = "message"
+            ; custom = Explode (StringSet.of_list [ "a.txt"; "b.txt"; "c.txt" ])
+            }
         ]
       in
       check_string_list
@@ -69,11 +77,40 @@ let test_exploded_entries =
         (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
 
+let test_exploded_entries_some_kept =
+  ( "Exploded entries are translated to one commit for each file"
+  , fun () ->
+      let modif s =
+        if String.equal s "Target" then [ "a.txt"; "b.txt"; "c.txt" ] else []
+      in
+      let entry =
+        [ Rebase.
+            { command = Pick
+            ; sha1 = "Target"
+            ; message = "message"
+            ; custom = Explode (StringSet.of_list [ "b.txt"; "c.txt" ])
+            }
+        ]
+      in
+      check_string_list
+        [ "pick Target message"
+        ; "exec git reset HEAD~ && git add a.txt && git commit -m 'message' && git add \
+           b.txt && git commit -m 'b.txt (Exploded from 'message')' && git add c.txt && \
+           git commit -m 'c.txt (Exploded from 'message')'"
+        ]
+        (Rebase.git_todo_of_rebase_entries modif entry) )
+;;
+
 let test_exploded_entry_no_modified =
   ( "If  there is no modified file, no exec is generated for an exploded entry"
   , fun () ->
       let entry =
-        [ Rebase.{ command = Pick; sha1 = "SHA1"; message = "message"; custom = Explode }
+        [ Rebase.
+            { command = Pick
+            ; sha1 = "SHA1"
+            ; message = "message"
+            ; custom = Explode StringSet.empty
+            }
         ]
       in
       check_string_list
@@ -136,6 +173,7 @@ let () =
       , quick_tests
           [ test_renamed_entries
           ; test_exploded_entries
+          ; test_exploded_entries_some_kept
           ; test_exploded_entry_no_modified
           ; test_fixup
           ] )
