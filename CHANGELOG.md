@@ -1,5 +1,8 @@
 ## Current
 ### Rebase
+#### Features
+- Files can be individually 'exploded' (moved to a separate commit) from the file navigation tab by pressing **x**. Pressing **x** in the commit navigation view still toggle or untoggle all files.
+- Exploded commits can now also be renamed
 #### Changes
 - Switching between commit navigation and file navigation is now done with TAB key instead of **:f** command
 #### Bugfixes

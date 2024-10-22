@@ -265,7 +265,8 @@ let%expect_test "Exploding commits" =
                  │ 7.c
                  └
     |}];
-  print_render (play_events [ Char 'x' ] A.init);
+  let explode_all = play_events [ Char 'x' ] A.init in
+  print_render explode_all;
   [%expect
     {|
     pick: 1a 'A' │ (x) 1.c
@@ -277,18 +278,34 @@ let%expect_test "Exploding commits" =
                  │ (x) 7.c
                  └
     |}];
-  print_render (play_events [ Char 'x'; Char 'x' ] A.init);
+  let keep_some =
+    play_events [ Char '\t'; Down; Char 'x'; Down; Down; Char 'x' ] explode_all
+  in
+  print_render keep_some;
   [%expect
     {|
-    pick: 1a 'A' │ 1.c
-    pick: 2b 'B' │ 2.c
-    pick: 3c 'C' │ 3.c
-    pick: 4d 'D' │ 4.c
-                 │ 5.c
-                 │ 6.c
-                 │ 7.c
-                 └
-    |}]
+    pick:... │ (x) 1.c
+    pick:... │ 2.c
+    pick:... │ (x) 3.c
+    pick:... │ 4.c
+             │ (x) 5.c
+             │ (x) 6.c
+             │ (x) 7.c
+             └
+    |}];
+  let keep_all = play_events [ Char '\t'; Char 'x' ] keep_some in
+  print_render keep_all;
+  [%expect
+    {|
+      pick: 1a 'A' │ 1.c
+      pick: 2b 'B' │ 2.c
+      pick: 3c 'C' │ 3.c
+      pick: 4d 'D' │ 4.c
+                   │ 5.c
+                   │ 6.c
+                   │ 7.c
+                   └
+      |}]
 ;;
 
 let%expect_test "CLI mode" =

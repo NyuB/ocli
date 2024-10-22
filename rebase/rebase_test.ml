@@ -5,11 +5,11 @@ let quick_tests tests = List.map quick_test tests
 
 module StringSet = Set.Make (String)
 
-let string_of_set s = StringSet.to_list s |> String.concat "; "
+let string_of_explode s = Rebase.ExplodeCommit.exploded_list s |> String.concat "; "
 
 let string_of_custom_command Rebase.{ rename; explode } =
   let rename_string = rename |?: "None" in
-  let explode_string = string_of_set explode in
+  let explode_string = string_of_explode explode in
   Printf.sprintf "{ rename = %s; explode = { %s }}" rename_string explode_string
 ;;
 
@@ -36,7 +36,15 @@ let check_string_list =
 ;;
 
 let no_modified _ = []
-let nothing_custom = Rebase.{ rename = None; explode = StringSet.empty }
+let nothing_custom = Rebase.{ rename = None; explode = Rebase.ExplodeCommit.init_nothing }
+
+let only_exploded exploded =
+  Rebase.{ rename = None; explode = ExplodeCommit.init_all exploded }
+;;
+
+let only_renamed name =
+  Rebase.{ rename = Some name; explode = ExplodeCommit.init_nothing }
+;;
 
 let test_renamed_entries =
   ( "Renamed entries are translated to execs"
@@ -46,7 +54,7 @@ let test_renamed_entries =
             { command = Pick
             ; sha1 = "sha1"
             ; message = "message"
-            ; custom = { rename = Some "rename"; explode = StringSet.empty }
+            ; custom = only_renamed "rename"
             }
         ]
       in
@@ -66,10 +74,7 @@ let test_exploded_entries =
             { command = Pick
             ; sha1 = "Target"
             ; message = "message"
-            ; custom =
-                { rename = None
-                ; explode = StringSet.of_list [ "a.txt"; "b.txt"; "c.txt" ]
-                }
+            ; custom = only_exploded [ "a.txt"; "b.txt"; "c.txt" ]
             }
         ]
       in
@@ -94,7 +99,7 @@ let test_exploded_entries_some_kept =
             { command = Pick
             ; sha1 = "Target"
             ; message = "message"
-            ; custom = { rename = None; explode = StringSet.of_list [ "b.txt"; "c.txt" ] }
+            ; custom = only_exploded [ "b.txt"; "c.txt" ]
             }
         ]
       in
@@ -115,7 +120,7 @@ let test_exploded_entry_no_modified =
             { command = Pick
             ; sha1 = "SHA1"
             ; message = "message"
-            ; custom = { explode = StringSet.empty; rename = None }
+            ; custom = nothing_custom
             }
         ]
       in
@@ -137,7 +142,7 @@ let test_exploded_and_renamed =
             ; message = "message"
             ; custom =
                 { rename = Some "Renamed"
-                ; explode = StringSet.of_list [ "b.txt"; "c.txt" ]
+                ; explode = ExplodeCommit.init_all [ "b.txt"; "c.txt" ]
                 }
             }
         ]

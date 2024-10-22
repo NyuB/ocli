@@ -38,6 +38,7 @@ In this mode, the current commit message becomes editable
 In this mode, the modified files panel on the right takes more space and you can navigate between files.
 - **Up/Down arrow keys** -> navigate to previous/next file
 - **Esc** or **TAB** -> enter [Commit navigation mode](#commit-navigation-mode)
+- **x** pr **X** -> toggle on of off the current file to be commited in a separate commit
 
 ## CLI mode
 - **Enter** -> apply current command if valid
