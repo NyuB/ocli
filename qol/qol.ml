@@ -9,6 +9,8 @@ module List : sig
 
   (** [at_most n l] is the [n] first elements of [l]. If [l] has less than [n] elements, the result is [l]. If [n <= 0] result is the empty list *)
   val at_most : int -> 'a list -> 'a list
+
+  val singleton : 'a -> 'a list
 end = struct
   include List
 
@@ -28,6 +30,8 @@ end = struct
     in
     aux [] n l
   ;;
+
+  let singleton a = [ a ]
 end
 
 module Out_channel : sig

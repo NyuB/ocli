@@ -1,3 +1,5 @@
+open Qol
+
 let quick_test (name, test) = name, `Quick, test
 let quick_tests tests = List.map quick_test tests
 
@@ -5,10 +7,10 @@ module StringSet = Set.Make (String)
 
 let string_of_set s = StringSet.to_list s |> String.concat "; "
 
-let string_of_custom_command = function
-  | Rebase.Rename new_name -> Printf.sprintf "Rename %s" new_name
-  | Explode s -> Printf.sprintf "Explode { %s }" (string_of_set s)
-  | Nothing -> "Nothing"
+let string_of_custom_command Rebase.{ rename; explode } =
+  let rename_string = rename |?: "None" in
+  let explode_string = string_of_set explode in
+  Printf.sprintf "{ rename = %s; explode = { %s }}" rename_string explode_string
 ;;
 
 let rebase_entry_testable : Rebase.rebase_entry Alcotest.testable =
@@ -34,6 +36,7 @@ let check_string_list =
 ;;
 
 let no_modified _ = []
+let nothing_custom = Rebase.{ rename = None; explode = StringSet.empty }
 
 let test_renamed_entries =
   ( "Renamed entries are translated to execs"
@@ -43,7 +46,7 @@ let test_renamed_entries =
             { command = Pick
             ; sha1 = "sha1"
             ; message = "message"
-            ; custom = Rename "rename"
+            ; custom = { rename = Some "rename"; explode = StringSet.empty }
             }
         ]
       in
@@ -63,7 +66,10 @@ let test_exploded_entries =
             { command = Pick
             ; sha1 = "Target"
             ; message = "message"
-            ; custom = Explode (StringSet.of_list [ "a.txt"; "b.txt"; "c.txt" ])
+            ; custom =
+                { rename = None
+                ; explode = StringSet.of_list [ "a.txt"; "b.txt"; "c.txt" ]
+                }
             }
         ]
       in
@@ -88,7 +94,7 @@ let test_exploded_entries_some_kept =
             { command = Pick
             ; sha1 = "Target"
             ; message = "message"
-            ; custom = Explode (StringSet.of_list [ "b.txt"; "c.txt" ])
+            ; custom = { rename = None; explode = StringSet.of_list [ "b.txt"; "c.txt" ] }
             }
         ]
       in
@@ -109,13 +115,41 @@ let test_exploded_entry_no_modified =
             { command = Pick
             ; sha1 = "SHA1"
             ; message = "message"
-            ; custom = Explode StringSet.empty
+            ; custom = { explode = StringSet.empty; rename = None }
             }
         ]
       in
       check_string_list
         [ "pick SHA1 message" ]
         (Rebase.git_todo_of_rebase_entries no_modified entry) )
+;;
+
+let test_exploded_and_renamed =
+  ( "Entries are renamed first then exploded"
+  , fun () ->
+      let modif s =
+        if String.equal s "Target" then [ "a.txt"; "b.txt"; "c.txt" ] else []
+      in
+      let entry =
+        [ Rebase.
+            { command = Pick
+            ; sha1 = "Target"
+            ; message = "message"
+            ; custom =
+                { rename = Some "Renamed"
+                ; explode = StringSet.of_list [ "b.txt"; "c.txt" ]
+                }
+            }
+        ]
+      in
+      check_string_list
+        [ "pick Target message"
+        ; "exec git commit --amend -m 'Renamed'"
+        ; "exec git reset HEAD~ && git add a.txt && git commit -m 'Renamed' && git add \
+           b.txt && git commit -m 'b.txt (Exploded from 'Renamed')' && git add c.txt && \
+           git commit -m 'c.txt (Exploded from 'Renamed')'"
+        ]
+        (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
 
 let test_parse_git_entry_file =
@@ -126,19 +160,19 @@ let test_parse_git_entry_file =
         [ { command = Pick
           ; message = "Add default style to Tty module"
           ; sha1 = "8e46867"
-          ; custom = Nothing
+          ; custom = nothing_custom
           }
         ; { command = Pick
           ; message = "Make test output more readable"
           ; sha1 = "ee88f85"
-          ; custom = Nothing
+          ; custom = nothing_custom
           }
         ; { command = Pick
           ; message = "Move setup logic to Platform modules"
           ; sha1 = "e24e6e4"
-          ; custom = Nothing
+          ; custom = nothing_custom
           }
-        ; { command = Pick; message = "wip"; sha1 = "8a6ece0"; custom = Nothing }
+        ; { command = Pick; message = "wip"; sha1 = "8a6ece0"; custom = nothing_custom }
         ]
         entries )
 ;;
@@ -151,17 +185,17 @@ let test_fixup =
         (Rebase.git_todo_of_rebase_entries
            no_modified
            Rebase.
-             [ { command = Pick; message = "Pick_A"; sha1 = "a"; custom = Nothing }
+             [ { command = Pick; message = "Pick_A"; sha1 = "a"; custom = nothing_custom }
              ; { command = Fixup Discard_message
                ; message = "Discard"
                ; sha1 = "f"
-               ; custom = Nothing
+               ; custom = nothing_custom
                }
-             ; { command = Pick; message = "Pick_B"; sha1 = "b"; custom = Nothing }
+             ; { command = Pick; message = "Pick_B"; sha1 = "b"; custom = nothing_custom }
              ; { command = Fixup Keep_message
                ; message = "Keep"
                ; sha1 = "F"
-               ; custom = Nothing
+               ; custom = nothing_custom
                }
              ]) )
 ;;
@@ -175,6 +209,7 @@ let () =
           ; test_exploded_entries
           ; test_exploded_entries_some_kept
           ; test_exploded_entry_no_modified
+          ; test_exploded_and_renamed
           ; test_fixup
           ] )
     ; "Rebase file parsing", quick_tests [ test_parse_git_entry_file ]

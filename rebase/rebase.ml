@@ -28,11 +28,9 @@ type rebase_command =
   | Update of string
 
 type custom_command =
-  | Rename of string
-  (** Replace the message of a commit. Differs from git [Reword] in that it will be applied without further user actions. *)
-  | Explode of StringSet.t
-  (** Split a single commit into the base commit + one commit by selected modified file *)
-  | Nothing
+  { explode : StringSet.t
+  ; rename : string option
+  }
 
 type rebase_entry =
   { command : rebase_command
@@ -62,16 +60,11 @@ let string_of_rebase_command = function
   | Update git_ref -> Printf.sprintf "update <%s>" git_ref
 ;;
 
-let message_of_rebase_entry entry =
-  match entry.custom with
-  | Rename n -> n
-  | Nothing | Explode _ -> entry.message
-;;
+let message_of_rebase_entry entry = entry.custom.rename |?: entry.message
 
 let custom_info entry =
-  match entry.custom with
-  | Rename _ -> "(renamed)"
-  | Explode _ -> "(explode)"
+  match entry.custom.rename with
+  | Some _ -> "(renamed)"
   | _ -> ""
 ;;
 
@@ -108,13 +101,14 @@ let exec_each_exploded_commit exploded message =
     (StringSet.to_list exploded)
 ;;
 
-let git_todo_of_exploded_entry modified_files exploded ({ sha1; message; _ } as entry) =
-  let modified = modified_files sha1 |> StringSet.of_list in
+let git_todo_of_exploded_entry modified_files exploded entry =
+  let modified = modified_files entry.sha1 |> StringSet.of_list in
   let kept = StringSet.diff modified exploded
   and exploded = StringSet.inter modified exploded in
   if StringSet.is_empty exploded
-  then [ git_todo_base entry ]
+  then []
   else (
+    let message = message_of_rebase_entry entry in
     let exec_kept = exec_initial_commit kept message in
     let exec_each = exec_each_exploded_commit exploded message in
     let exec =
@@ -122,7 +116,7 @@ let git_todo_of_exploded_entry modified_files exploded ({ sha1; message; _ } as 
         "exec %s"
         (String.concat " && " ("git reset HEAD~" :: (exec_kept @ exec_each)))
     in
-    [ git_todo_base entry; exec ])
+    [ exec ])
 ;;
 
 (** [git_todo_of_rebase_entry modified_files entry] returns the git rebase command line to execute to apply [entry], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase *)
@@ -131,12 +125,14 @@ let git_todo_of_rebase_entry
   ({ custom; _ } as entry)
   : string list
   =
-  match custom with
-  | Rename new_name ->
-    let exec_rename = Printf.sprintf "exec git commit --amend -m '%s'" new_name in
-    [ git_todo_base entry; exec_rename ]
-  | Explode exploded -> git_todo_of_exploded_entry modified_files exploded entry
-  | Nothing -> [ git_todo_base entry ]
+  let exec_rename =
+    custom.rename
+    |? Printf.sprintf "exec git commit --amend -m '%s'"
+    |? List.singleton
+    |?: []
+  in
+  let exec_explode = git_todo_of_exploded_entry modified_files custom.explode entry in
+  [ git_todo_base entry ] @ exec_rename @ exec_explode
 ;;
 
 (** [git_todo_of_rebase_entries modified_files entries] returns the git rebase command line to execute to apply [entries], in git execution order. These lines are meant to be written to the rebase file handled to git to proceed with the rebase.
@@ -154,7 +150,7 @@ let parse_entry (line : string) : rebase_entry option =
   let line = String.trim line in
   let parts = String.split_on_char ' ' line in
   let concat = String.concat " "
-  and custom = Nothing in
+  and custom = { explode = StringSet.empty; rename = None } in
   match parts with
   | "pick" :: sha1 :: rest -> Some { command = Pick; sha1; custom; message = concat rest }
   | "edit" :: sha1 :: rest -> Some { command = Edit; sha1; custom; message = concat rest }
@@ -291,12 +287,7 @@ module App (Info : Rebase_info_external) :
       | _ -> false
     ;;
 
-    let is_explode entry =
-      match entry.custom with
-      | Explode _ -> true
-      | _ -> false
-    ;;
-
+    let is_explode entry = not @@ StringSet.is_empty entry.custom.explode
     let current_entry model = model.entries.(model.cursor)
     let current_sha1 model = (current_entry model).sha1
 
@@ -351,7 +342,8 @@ module App (Info : Rebase_info_external) :
     let set_rename ({ cursor; entries; _ } as model) (name : string) =
       let current = entries.(cursor) in
       let copy = Array.copy entries in
-      copy.(cursor) <- { current with custom = Rename name };
+      copy.(cursor)
+      <- { current with custom = { current.custom with rename = Some name } };
       { model with entries = copy; mode = Navigate }
     ;;
 
@@ -362,8 +354,11 @@ module App (Info : Rebase_info_external) :
       <- { current with
            custom =
              (if is_explode current
-              then Nothing
-              else Explode (StringSet.of_list (Info.modified_files current.sha1)))
+              then { current.custom with explode = StringSet.empty }
+              else
+                { current.custom with
+                  explode = StringSet.of_list (Info.modified_files current.sha1)
+                })
          };
       { model with entries = copy; mode = Navigate }
     ;;
@@ -371,12 +366,7 @@ module App (Info : Rebase_info_external) :
     let switch_mode mode model = { model with mode }
     let with_appearance appearance model = { model with appearance }
     let renaming model s = switch_mode (Rename s) model
-
-    let current_message model =
-      match current_entry model with
-      | { custom = Rename s; _ } -> s
-      | { message; _ } -> message
-    ;;
+    let current_message model = message_of_rebase_entry @@ current_entry model
   end
 
   type model = Model.t

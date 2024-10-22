@@ -22,7 +22,7 @@
 (tests
  (names rebase_test)
  (modules rebase_test)
- (libraries rebase alcotest)
+ (libraries qol rebase alcotest)
  (deps rebase_file_sample.txt))
 
 (executable
