@@ -16,7 +16,12 @@ module ExplodeCommit : sig
   val init_all : string list -> t
   val nothing_exploded : t -> bool
   val is_exploded : t -> string -> bool
-  val ket_exploded : string list -> t -> string list * string list
+
+  (** [kept_exploded all_modified t] returns two sets:
+      - the first set is the modified files that are to be kept in the original commit
+      - the second set is the modifed files that are to be commited separately *)
+  val kept_exploded : string list -> t -> string list * string list
+
   val toggle : t -> string -> t
   val toggle_i : string list -> t -> int -> t
   val exploded_list : t -> string list
@@ -28,7 +33,7 @@ end = struct
   let nothing_exploded (exploded : t) : bool = StringSet.is_empty exploded
   let is_exploded (exploded : t) (file : string) : bool = StringSet.mem file exploded
 
-  let ket_exploded all (exploded : t) =
+  let kept_exploded all (exploded : t) =
     let kept = StringSet.diff (StringSet.of_list all) exploded in
     StringSet.to_list kept, StringSet.to_list exploded
   ;;
@@ -143,7 +148,7 @@ let git_todo_of_exploded_entry modified_files exploded entry =
   then []
   else (
     let modified = modified_files entry.sha1 in
-    let kept, exploded = ExplodeCommit.ket_exploded modified exploded in
+    let kept, exploded = ExplodeCommit.kept_exploded modified exploded in
     let message = message_of_rebase_entry entry in
     let exec_kept = exec_initial_commit kept message in
     let exec_each = exec_each_exploded_commit exploded message in
