@@ -294,7 +294,6 @@ module App (Info : Rebase_info_external) :
 
     val entry_count : t -> int
     val is_navigate_files : t -> bool
-    val current_sha1 : t -> string
     val move_up : t -> t
     val move_down : t -> t
     val set_fixup : t -> fixup_kind -> t
@@ -306,8 +305,9 @@ module App (Info : Rebase_info_external) :
     val switch_mode : mode -> t -> t
     val with_appearance : Appearance.t -> t -> t
     val renaming : t -> Editing_line.t -> t
-    val current_message : t -> string
     val current_entry : t -> rebase_entry
+    val current_message : t -> string
+    val current_modified_files : t -> string list
   end = struct
     type t =
       { entries : rebase_entry array
@@ -328,6 +328,7 @@ module App (Info : Rebase_info_external) :
     let is_explode entry = not @@ ExplodeCommit.nothing_exploded entry.custom.explode
     let current_entry model = model.entries.(model.cursor)
     let current_sha1 model = (current_entry model).sha1
+    let current_modified_files model = Info.modified_files (current_sha1 model)
 
     let swap arr a b =
       let copy = Array.copy arr in
@@ -416,7 +417,7 @@ module App (Info : Rebase_info_external) :
 
   type model = Model.t
 
-  let modified_count model = List.length (Info.modified_files (Model.current_sha1 model))
+  let modified_count model = List.length (Model.current_modified_files model)
 
   module View : sig
     val view : model -> Tty.ansi_view_item list
@@ -509,8 +510,7 @@ module App (Info : Rebase_info_external) :
     ;;
 
     let is_exploded (model : model) file =
-      let entry = Model.current_entry model in
-      ExplodeCommit.is_exploded entry.custom.explode file
+      ExplodeCommit.is_exploded (Model.current_entry model).custom.explode file
     ;;
 
     let line_of_file_entry model file =
@@ -532,7 +532,7 @@ module App (Info : Rebase_info_external) :
         else Tty.Default_style.default_style
       in
       let file_entries =
-        Info.modified_files (Model.current_sha1 model)
+        Model.current_modified_files model
         |> List.map (line_of_file_entry model)
         |> Array.of_list
         |> Array.map Components.Text_line.component
@@ -605,14 +605,13 @@ module App (Info : Rebase_info_external) :
   ;;
 
   let navigate_files (model : model) =
-    let files = Info.modified_files (Model.current_sha1 model) in
-    if List.is_empty files then model else { model with mode = Navigate_files 0 }
+    if modified_count model = 0 then model else { model with mode = Navigate_files 0 }
   ;;
 
   let toggle_explode_file (model : model) (i : int) =
-    let current = Model.current_entry model in
-    let modified = Info.modified_files current.sha1 in
-    let updated = ExplodeCommit.toggle_i modified current.custom.explode i in
+    let { custom; sha1; _ } = Model.current_entry model in
+    let modified = Info.modified_files sha1 in
+    let updated = ExplodeCommit.toggle_i modified custom.explode i in
     Model.set_explode model updated
   ;;
 
