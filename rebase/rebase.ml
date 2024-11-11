@@ -9,50 +9,6 @@ module Row_divided = Components.Row_divided (Components.Merge_ansi_views)
 module Editing_line = Components.Editing_line
 module StringSet = Set.Make (String)
 
-module ExplodeCommit : sig
-  type t
-
-  val init_nothing : t
-  val init_all : string list -> t
-  val nothing_exploded : t -> bool
-  val is_exploded : t -> string -> bool
-
-  (** [kept_exploded all_modified t] returns two sets:
-      - the first set is the modified files that are to be kept in the original commit
-      - the second set is the modifed files that are to be commited separately *)
-  val kept_exploded : string list -> t -> string list * string list
-
-  val toggle : t -> string -> t
-  val toggle_i : string list -> t -> int -> t
-  val exploded_list : t -> string list
-end = struct
-  type t = StringSet.t
-
-  let init_nothing : t = StringSet.empty
-  let init_all l : t = StringSet.of_list l
-  let nothing_exploded (exploded : t) : bool = StringSet.is_empty exploded
-  let is_exploded (exploded : t) (file : string) : bool = StringSet.mem file exploded
-
-  let kept_exploded all (exploded : t) =
-    let kept = StringSet.diff (StringSet.of_list all) exploded in
-    StringSet.to_list kept, StringSet.to_list exploded
-  ;;
-
-  let toggle (exploded : t) (file : string) : t =
-    if StringSet.mem file exploded
-    then StringSet.remove file exploded
-    else StringSet.add file exploded
-  ;;
-
-  let toggle_i all (exploded : t) (i : int) : t =
-    match List.nth_opt all i with
-    | None -> exploded
-    | Some file -> toggle exploded file
-  ;;
-
-  let exploded_list t = StringSet.to_list t
-end
-
 type fixup_kind =
   | Discard_message
   | Keep_message
@@ -72,7 +28,7 @@ type rebase_command =
   | Update of string
 
 type custom_command =
-  { explode : ExplodeCommit.t
+  { explode : Explode_commit.t
   ; rename : string option
   }
 
@@ -144,11 +100,11 @@ let exec_each_exploded_commit exploded message =
 ;;
 
 let git_todo_of_exploded_entry modified_files exploded entry =
-  if ExplodeCommit.nothing_exploded exploded
+  if Explode_commit.nothing_exploded exploded
   then []
   else (
     let modified = modified_files entry.sha1 in
-    let kept, exploded = ExplodeCommit.kept_exploded modified exploded in
+    let kept, exploded = Explode_commit.kept_exploded modified exploded in
     let message = message_of_rebase_entry entry in
     let exec_kept = exec_initial_commit kept message in
     let exec_each = exec_each_exploded_commit exploded message in
@@ -191,7 +147,7 @@ let parse_entry (line : string) : rebase_entry option =
   let line = String.trim line in
   let parts = String.split_on_char ' ' line in
   let concat = String.concat " "
-  and custom = { explode = ExplodeCommit.init_nothing; rename = None } in
+  and custom = { explode = Explode_commit.init_nothing; rename = None } in
   match parts with
   | "pick" :: sha1 :: rest -> Some { command = Pick; sha1; custom; message = concat rest }
   | "edit" :: sha1 :: rest -> Some { command = Edit; sha1; custom; message = concat rest }
@@ -305,7 +261,7 @@ module App (Info : Rebase_info_external) :
     val set_drop : t -> t
     val set_pick : t -> t
     val set_rename : t -> string -> t
-    val set_explode : t -> ExplodeCommit.t -> t
+    val set_explode : t -> Explode_commit.t -> t
     val switch_explode : t -> t
     val switch_mode : mode -> t -> t
     val with_appearance : Appearance.t -> t -> t
@@ -330,7 +286,7 @@ module App (Info : Rebase_info_external) :
       | _ -> false
     ;;
 
-    let is_explode entry = not @@ ExplodeCommit.nothing_exploded entry.custom.explode
+    let is_explode entry = not @@ Explode_commit.nothing_exploded entry.custom.explode
     let current_entry model = model.entries.(model.cursor)
     let current_sha1 model = (current_entry model).sha1
     let current_modified_files model = Info.modified_files (current_sha1 model)
@@ -405,10 +361,10 @@ module App (Info : Rebase_info_external) :
       <- { current with
            custom =
              (if is_explode current
-              then { current.custom with explode = ExplodeCommit.init_nothing }
+              then { current.custom with explode = Explode_commit.init_nothing }
               else
                 { current.custom with
-                  explode = ExplodeCommit.init_all (Info.modified_files current.sha1)
+                  explode = Explode_commit.init_all (Info.modified_files current.sha1)
                 })
          };
       { model with entries = copy; mode = Navigate }
@@ -515,7 +471,7 @@ module App (Info : Rebase_info_external) :
     ;;
 
     let is_exploded (model : model) file =
-      ExplodeCommit.is_exploded (Model.current_entry model).custom.explode file
+      Explode_commit.is_exploded (Model.current_entry model).custom.explode file
     ;;
 
     let line_of_file_entry model file =
@@ -616,7 +572,7 @@ module App (Info : Rebase_info_external) :
   let toggle_explode_file (model : model) (i : int) =
     let { custom; sha1; _ } = Model.current_entry model in
     let modified = Info.modified_files sha1 in
-    let updated = ExplodeCommit.toggle_i modified custom.explode i in
+    let updated = Explode_commit.toggle_i modified custom.explode i in
     Model.set_explode model updated
   ;;
 

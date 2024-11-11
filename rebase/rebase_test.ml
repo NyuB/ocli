@@ -5,7 +5,7 @@ let quick_tests tests = List.map quick_test tests
 
 module StringSet = Set.Make (String)
 
-let string_of_explode s = Rebase.ExplodeCommit.exploded_list s |> String.concat "; "
+let string_of_explode s = Rebase__.Explode_commit.exploded_list s |> String.concat "; "
 
 let string_of_custom_command Rebase.{ rename; explode } =
   let rename_string = rename |?: "None" in
@@ -36,14 +36,17 @@ let check_string_list =
 ;;
 
 let no_modified _ = []
-let nothing_custom = Rebase.{ rename = None; explode = Rebase.ExplodeCommit.init_nothing }
+
+let nothing_custom =
+  Rebase.{ rename = None; explode = Rebase__.Explode_commit.init_nothing }
+;;
 
 let only_exploded exploded =
-  Rebase.{ rename = None; explode = ExplodeCommit.init_all exploded }
+  Rebase.{ rename = None; explode = Rebase__.Explode_commit.init_all exploded }
 ;;
 
 let only_renamed name =
-  Rebase.{ rename = Some name; explode = ExplodeCommit.init_nothing }
+  Rebase.{ rename = Some name; explode = Rebase__.Explode_commit.init_nothing }
 ;;
 
 let test_renamed_entries =
@@ -142,7 +145,7 @@ let test_exploded_and_renamed =
             ; message = "message"
             ; custom =
                 { rename = Some "Renamed"
-                ; explode = ExplodeCommit.init_all [ "b.txt"; "c.txt" ]
+                ; explode = Rebase__.Explode_commit.init_all [ "b.txt"; "c.txt" ]
                 }
             }
         ]
