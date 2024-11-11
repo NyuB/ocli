@@ -1,3 +1,7 @@
+## 0.7.1
+#### Bugfixes
+- Fixed commits' messages quoting that would stop rebase when exploding commits
+
 ## 0.7.0
 ### Rebase
 #### Features

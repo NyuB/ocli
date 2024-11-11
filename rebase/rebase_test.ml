@@ -84,9 +84,9 @@ let test_exploded_entries =
       check_string_list
         [ "pick Target message"
         ; "exec git reset HEAD~ && git add a.txt && git commit -m 'a.txt (Exploded from \
-           'message')' && git add b.txt && git commit -m 'b.txt (Exploded from \
-           'message')' && git add c.txt && git commit -m 'c.txt (Exploded from \
-           'message')'"
+           \"message\")' && git add b.txt && git commit -m 'b.txt (Exploded from \
+           \"message\")' && git add c.txt && git commit -m 'c.txt (Exploded from \
+           \"message\")'"
         ]
         (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
@@ -108,9 +108,7 @@ let test_exploded_entries_some_kept =
       in
       check_string_list
         [ "pick Target message"
-        ; "exec git reset HEAD~ && git add a.txt && git commit -m 'message' && git add \
-           b.txt && git commit -m 'b.txt (Exploded from 'message')' && git add c.txt && \
-           git commit -m 'c.txt (Exploded from 'message')'"
+        ; {|exec git reset HEAD~ && git add a.txt && git commit -m 'message' && git add b.txt && git commit -m 'b.txt (Exploded from "message")' && git add c.txt && git commit -m 'c.txt (Exploded from "message")'|}
         ]
         (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
@@ -153,9 +151,30 @@ let test_exploded_and_renamed =
       check_string_list
         [ "pick Target message"
         ; "exec git commit --amend -m 'Renamed'"
-        ; "exec git reset HEAD~ && git add a.txt && git commit -m 'Renamed' && git add \
-           b.txt && git commit -m 'b.txt (Exploded from 'Renamed')' && git add c.txt && \
-           git commit -m 'c.txt (Exploded from 'Renamed')'"
+        ; {|exec git reset HEAD~ && git add a.txt && git commit -m 'Renamed' && git add b.txt && git commit -m 'b.txt (Exploded from "Renamed")' && git add c.txt && git commit -m 'c.txt (Exploded from "Renamed")'|}
+        ]
+        (Rebase.git_todo_of_rebase_entries modif entry) )
+;;
+
+let test_escape_generated_messages =
+  ( "Generated commits' messages escape quotes"
+  , fun () ->
+      let modif s = if String.equal s "Target" then [ "a.txt"; "b.txt" ] else [] in
+      let entry =
+        [ Rebase.
+            { command = Pick
+            ; sha1 = "Target"
+            ; message = "message with 'quotes'"
+            ; custom =
+                { rename = None; explode = Rebase__.Explode_commit.init_all [ "a.txt" ] }
+            }
+        ]
+      in
+      check_string_list
+        [ "pick Target message with 'quotes'"
+        ; "exec git reset HEAD~ && git add b.txt && git commit -m 'message with \
+           _quotes_' && git add a.txt && git commit -m 'a.txt (Exploded from \"message \
+           with _quotes_\")'"
         ]
         (Rebase.git_todo_of_rebase_entries modif entry) )
 ;;
@@ -218,6 +237,7 @@ let () =
           ; test_exploded_entries_some_kept
           ; test_exploded_entry_no_modified
           ; test_exploded_and_renamed
+          ; test_escape_generated_messages
           ; test_fixup
           ] )
     ; "Rebase file parsing", quick_tests [ test_parse_git_entry_file ]

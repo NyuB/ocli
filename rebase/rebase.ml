@@ -81,12 +81,21 @@ let git_todo_base { command; sha1; message; _ } =
   Printf.sprintf "%s %s %s" (string_of_rebase_command command) sha1 message
 ;;
 
+let escaped message =
+  message
+  |> String.to_seq
+  |> Seq.map (function
+    | '\'' -> '_'
+    | c -> c)
+  |> String.of_seq
+;;
+
 let exec_initial_commit kept message =
   if List.is_empty kept
   then []
   else (
     let add_each_kept = List.map (fun f -> Printf.sprintf "git add %s" f) kept in
-    let commit_kept = Printf.sprintf "git commit -m '%s'" message in
+    let commit_kept = Printf.sprintf "git commit -m '%s'" (escaped message) in
     add_each_kept @ [ commit_kept ])
 ;;
 
@@ -94,7 +103,7 @@ let exec_each_exploded_commit exploded message =
   List.concat_map
     (fun f ->
       [ Printf.sprintf "git add %s" f
-      ; Printf.sprintf "git commit -m '%s (Exploded from '%s')'" f message
+      ; Printf.sprintf {|git commit -m '%s (Exploded from "%s")'|} f (escaped message)
       ])
     exploded
 ;;
